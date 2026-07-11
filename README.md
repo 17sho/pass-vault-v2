@@ -30,7 +30,7 @@
 | | Cloudflare 版 | Linux 版 |
 |---|---|---|
 | 运行时 | Workers + Static Assets | Node.js 22+ |
-| 数据库 | D1 | 本地 SQLite |
+| 数据库 | D1 | 服务器本机 SQLite 文件 |
 | 运维 | Wrangler / Cloudflare Dashboard | systemd + Caddy/Nginx |
 | 适合 | 无服务器、边缘部署 | 完全掌控主机与数据文件 |
 | 数据同步 | **不与 Linux 版自动同步** | **不与 Cloudflare 版自动同步** |
@@ -41,7 +41,7 @@
 
 > 截图占位：发布前可在 `docs/images/` 添加使用空白测试数据生成的桌面端与移动端截图；不得包含真实账户、域名、密码、Cookie 或其他敏感信息。
 
-## 快速开始（本地 Linux 版）
+## 本地开发预览（不是服务器生产部署）
 
 先决条件：Node.js 22+、npm，以及支持 WebCrypto 的现代浏览器。
 
@@ -54,7 +54,14 @@ npm run lint && npm run typecheck && npm run build
 COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
 ```
 
-打开 `http://127.0.0.1:3000`。`COOKIE_SECURE=false` **仅限本地 HTTP 开发**；生产环境必须启用 HTTPS 并保留安全 Cookie。
+打开 `http://127.0.0.1:3000`。这一段只用于开发者在电脑上快速预览，并不是服务器部署教程。`COOKIE_SECURE=false` **仅限本地 HTTP 开发**。
+
+## Linux 服务器生产部署
+
+服务器版应部署到 Ubuntu/Debian VPS：使用 Node.js 22+、服务器本机 SQLite、专用系统用户、systemd 常驻服务，并通过 Caddy 或 Nginx 提供公网域名和 HTTPS。不要把 Node 端口直接暴露到公网，也不要在生产环境设置 `COOKIE_SECURE=false`。
+
+- **[中文 Linux 服务器完整部署步骤](docs/deployment.zh-CN.md#4-linux-服务器生产部署ubuntudebian--nodejs--sqlite)**
+- [下载 Linux 服务器版 Release](https://github.com/17sho/pass-vault-v2/releases/latest)
 
 完整说明：**[中文部署指南](docs/deployment.zh-CN.md)** · [English deployment guide](docs/deployment.en.md)
 

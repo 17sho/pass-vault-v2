@@ -116,7 +116,9 @@ npx wrangler rollback <KNOWN_GOOD_VERSION_ID>
 
 Dashboard 中的恢复同样应新建 D1，并在 Console 分批执行已审查的 SQL（大型导出改用 CLI），验证后切换 `DB` binding。回滚 Worker 版本不会恢复 D1。
 
-## 4. Ubuntu/Debian：Node + SQLite
+## 4. Linux 服务器生产部署：Ubuntu/Debian + Node.js + SQLite
+
+本章是部署到公网 VPS/独立服务器的正式流程，不是“只在自己电脑上运行”的本地开发方案。SQLite 数据库文件保存在你的 Linux 服务器磁盘上，由 systemd 常驻运行 Node 服务，再由 Caddy/Nginx 反向代理到公网 HTTPS 域名。
 
 ### 4.1 安装与专用账户
 

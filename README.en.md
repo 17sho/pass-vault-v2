@@ -30,7 +30,7 @@ The server stores only authentication material, the wrapped vault key, and encry
 | | Cloudflare edition | Linux edition |
 |---|---|---|
 | Runtime | Workers + Static Assets | Node.js 22+ |
-| Database | D1 | Local SQLite |
+| Database | D1 | SQLite file stored on the Linux server |
 | Operations | Wrangler / Cloudflare Dashboard | systemd + Caddy/Nginx |
 | Best for | Serverless edge deployment | Full host and data-file control |
 | Data sync | **No automatic sync with Linux** | **No automatic sync with Cloudflare** |
@@ -41,7 +41,7 @@ Accounts and data are independent. To migrate, export an **encrypted backup** fr
 
 > Screenshot placeholder: before release, sanitized desktop and mobile screenshots made with empty test data may be added under `docs/images/`. They must contain no real accounts, domains, passwords, cookies, or other sensitive information.
 
-## Quick start (local Linux edition)
+## Local development preview (not a production server deployment)
 
 Prerequisites: Node.js 22+, npm, and a modern browser with WebCrypto.
 
@@ -54,7 +54,14 @@ npm run lint && npm run typecheck && npm run build
 COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
 ```
 
-Open `http://127.0.0.1:3000`. `COOKIE_SECURE=false` is **only for local HTTP development**. Production must use HTTPS and secure cookies.
+Open `http://127.0.0.1:3000`. This section is only a quick developer preview, not the Linux production deployment guide. `COOKIE_SECURE=false` is **only for local HTTP development**.
+
+## Linux production server deployment
+
+Deploy the server edition on an Ubuntu/Debian VPS with Node.js 22+, a SQLite file stored on that server, a dedicated system user, and a persistent systemd service. Put Caddy or Nginx in front for a public domain and HTTPS. Do not expose the Node port directly to the Internet or set `COOKIE_SECURE=false` in production.
+
+- **[Complete Linux server deployment guide](docs/deployment.en.md#4-linux-production-server-ubuntudebian--nodejs--sqlite)**
+- [Download the Linux server release](https://github.com/17sho/pass-vault-v2/releases/latest)
 
 Full instructions: [中文部署指南](docs/deployment.zh-CN.md) · **[English deployment guide](docs/deployment.en.md)**
 

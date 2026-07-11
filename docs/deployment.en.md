@@ -116,7 +116,9 @@ npx wrangler rollback <KNOWN_GOOD_VERSION_ID>
 
 For Dashboard restoration, likewise create a new D1 and execute reviewed SQL in the Console in manageable sections (use CLI for large exports), validate it, then switch the `DB` binding. Rolling back a Worker version does not restore D1.
 
-## 4. Ubuntu/Debian: Node + SQLite
+## 4. Linux production server: Ubuntu/Debian + Node.js + SQLite
+
+This is the production VPS/dedicated-server procedure, not merely a localhost development setup. The SQLite database file lives on your Linux server disk; systemd keeps the Node service running, and Caddy/Nginx exposes it through a public HTTPS domain.
 
 ### 4.1 Install and create a dedicated account
 
