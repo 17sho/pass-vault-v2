@@ -16,7 +16,7 @@
                                                    │
                                       Node.js + 静态 dist/
                                                    │
-                               /var/lib/pass-vault-v2/pass-vault.sqlite
+                         SQLite + attachments/（均为持久密文）
 ```
 
 Node 只监听回环地址；systemd 以专用用户运行。SQLite 及 WAL/SHM 位于持久数据目录，代码位于只读的版本目录。
@@ -32,6 +32,7 @@ npm --version
 sudo useradd --system --home /var/lib/pass-vault-v2 --shell /usr/sbin/nologin pass-vault 2>/dev/null || true
 sudo install -d -o root -g pass-vault -m 0750 /opt/pass-vault-v2/releases
 sudo install -d -o pass-vault -g pass-vault -m 0750 /var/lib/pass-vault-v2
+sudo install -d -o pass-vault -g pass-vault -m 0700 /var/lib/pass-vault-v2/attachments
 sudo install -d -o root -g pass-vault -m 0750 /etc/pass-vault-v2
 sudo install -d -o root -g root -m 0700 /var/backups/pass-vault-v2
 ```
@@ -86,6 +87,7 @@ sudo ln -sfn /opt/pass-vault-v2/releases/pass-vault-v2-linux-<VERSION> /opt/pass
 | `HOST` | `127.0.0.1` | 禁止直接监听公网 |
 | `PORT` | `3000` | 本机反代端口，可修改 |
 | `DB_PATH` | `/var/lib/pass-vault-v2/pass-vault.sqlite` | 持久 SQLite 绝对路径 |
+| `ATTACHMENTS_DIR` | `/var/lib/pass-vault-v2/attachments` | 附件密文对象目录；必须是持久本地磁盘 |
 | `COOKIE_SECURE` | 不设置 | 默认启用 Secure Cookie；生产绝不能设为 `false` |
 
 创建 `/etc/pass-vault-v2/server.env`：
@@ -95,6 +97,7 @@ NODE_ENV=production
 HOST=127.0.0.1
 PORT=3000
 DB_PATH=/var/lib/pass-vault-v2/pass-vault.sqlite
+ATTACHMENTS_DIR=/var/lib/pass-vault-v2/attachments
 ```
 
 ```bash
@@ -190,7 +193,7 @@ server {
   ssl_certificate /etc/letsencrypt/live/<APP_DOMAIN>/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/<APP_DOMAIN>/privkey.pem;
   add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-  client_max_body_size 3m;
+  client_max_body_size 110m;
   location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
@@ -234,7 +237,7 @@ sudo ss -ltnp | grep -E ':(80|443|3000)\b'
 ## 9. 升级与回滚
 
 1. 记录当前目标：`readlink -f /opt/pass-vault-v2/current`。
-2. 按第 11 节做在线备份并通过完整性检查。
+2. 按第 10 节做 SQLite + 附件一致性备份并通过完整性检查；确认新版本磁盘空间足够。
 3. 按第 3 节把新版本安装到新的版本目录，先完成测试/build。
 4. 原子切换软链接并重启：
 
@@ -254,17 +257,21 @@ sudo systemctl restart pass-vault-v2
 
 代码回滚不会回滚数据库。仅在 schema/data 不兼容且确认需要时，按恢复流程停机恢复升级前备份。
 
-## 10. SQLite 在线备份
+## 10. SQLite 与附件一致性备份
 
-不要在服务运行时用普通 `cp` 复制数据库；WAL 模式下可能得到不一致副本。使用 SQLite `.backup`：
+附件行与磁盘对象必须来自同一时间点。最简单可靠的方法是短暂停写（停止服务），再复制附件目录并用 SQLite `.backup`；不要在线 `cp` WAL 数据库，也不要只备份其中一项。
 
 ```bash
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+sudo systemctl stop pass-vault-v2
 sudo -u pass-vault sqlite3 /var/lib/pass-vault-v2/pass-vault.sqlite \
   ".backup '/var/lib/pass-vault-v2/backup-$STAMP.sqlite'"
+sudo tar -C /var/lib/pass-vault-v2 -czf /var/backups/pass-vault-v2/attachments-$STAMP.tar.gz attachments
 sudo mv /var/lib/pass-vault-v2/backup-$STAMP.sqlite /var/backups/pass-vault-v2/
-sudo chmod 0600 /var/backups/pass-vault-v2/backup-$STAMP.sqlite
+sudo chmod 0600 /var/backups/pass-vault-v2/{backup-$STAMP.sqlite,attachments-$STAMP.tar.gz}
+sudo systemctl start pass-vault-v2
 sudo sqlite3 /var/backups/pass-vault-v2/backup-$STAMP.sqlite 'PRAGMA integrity_check;'
+sudo tar -tzf /var/backups/pass-vault-v2/attachments-$STAMP.tar.gz >/dev/null
 ```
 
 结果必须为 `ok`。将备份加密后复制到独立/异地存储，设置保留策略并定期演练恢复。备份包含认证材料和密文，仍是敏感资产。
@@ -275,11 +282,17 @@ sudo sqlite3 /var/backups/pass-vault-v2/backup-$STAMP.sqlite 'PRAGMA integrity_c
 
 ```bash
 BACKUP=/var/backups/pass-vault-v2/<BACKUP_FILE>.sqlite
+ATTACHMENTS_BACKUP=/var/backups/pass-vault-v2/<ATTACHMENTS_BACKUP>.tar.gz
 sudo sqlite3 "$BACKUP" 'PRAGMA integrity_check;'
+sudo tar -tzf "$ATTACHMENTS_BACKUP" >/dev/null
 sudo systemctl stop pass-vault-v2
 sudo cp -a /var/lib/pass-vault-v2/pass-vault.sqlite /var/backups/pass-vault-v2/failed-$(date -u +%Y%m%dT%H%M%SZ).sqlite
 sudo rm -f /var/lib/pass-vault-v2/pass-vault.sqlite-wal /var/lib/pass-vault-v2/pass-vault.sqlite-shm
 sudo install -o pass-vault -g pass-vault -m 0600 "$BACKUP" /var/lib/pass-vault-v2/pass-vault.sqlite
+sudo mv /var/lib/pass-vault-v2/attachments /var/backups/pass-vault-v2/failed-attachments-$(date -u +%Y%m%dT%H%M%SZ)
+sudo tar -C /var/lib/pass-vault-v2 -xzf "$ATTACHMENTS_BACKUP"
+sudo chown -R pass-vault:pass-vault /var/lib/pass-vault-v2/attachments
+sudo chmod 0700 /var/lib/pass-vault-v2/attachments
 sudo systemctl start pass-vault-v2
 curl -fsS http://127.0.0.1:3000/api/health
 ```
@@ -292,6 +305,7 @@ curl -fsS http://127.0.0.1:3000/api/health
 - SSH 禁用密码/root 登录，使用密钥和最小 sudo；限制管理端来源。
 - 代码 root 所有且服务不可写；数据目录仅服务用户可读写；环境文件 0640、数据库/备份 0600。
 - 只开放 80/443 与受限 SSH；启用 HTTPS/HSTS，监控证书续期、磁盘空间、服务和备份。
+- 容量规划至少覆盖 SQLite、附件密文、临时上传、一次本机备份和升级余量；监控容量与 inode，建议在 70%/85% 告警。
 - 不把 Node 暴露公网，不以 root 运行，不关闭 Secure Cookie，不记录/发送密码、vault key、条目明文、完整密文、Cookie。
 - 定期查看 `systemd-analyze security pass-vault-v2`，按发行版兼容性继续收紧沙箱。
 

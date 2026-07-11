@@ -16,7 +16,7 @@ Browser ──HTTPS──> Caddy/Nginx :443 ──HTTP──> 127.0.0.1:3000
                                                    │
                                       Node.js + static dist/
                                                    │
-                               /var/lib/pass-vault-v2/pass-vault.sqlite
+                         SQLite + attachments/ (persistent ciphertext)
 ```
 
 Node binds only to loopback and systemd runs it as a dedicated user. SQLite plus its WAL/SHM files live in a persistent data directory; application releases are read-only.
@@ -31,6 +31,7 @@ npm --version
 sudo useradd --system --home /var/lib/pass-vault-v2 --shell /usr/sbin/nologin pass-vault 2>/dev/null || true
 sudo install -d -o root -g pass-vault -m 0750 /opt/pass-vault-v2/releases
 sudo install -d -o pass-vault -g pass-vault -m 0750 /var/lib/pass-vault-v2
+sudo install -d -o pass-vault -g pass-vault -m 0700 /var/lib/pass-vault-v2/attachments
 sudo install -d -o root -g pass-vault -m 0750 /etc/pass-vault-v2
 sudo install -d -o root -g root -m 0700 /var/backups/pass-vault-v2
 ```
@@ -83,6 +84,7 @@ sudo ln -sfn /opt/pass-vault-v2/releases/pass-vault-v2-linux-<VERSION> /opt/pass
 | `HOST` | `127.0.0.1` | Never bind the app directly to the public interface |
 | `PORT` | `3000` | Local reverse-proxy port |
 | `DB_PATH` | `/var/lib/pass-vault-v2/pass-vault.sqlite` | Absolute persistent SQLite path |
+| `ATTACHMENTS_DIR` | `/var/lib/pass-vault-v2/attachments` | Persistent local directory for encrypted attachment objects |
 | `COOKIE_SECURE` | unset | Secure cookies are on by default; never set `false` in production |
 
 Create `/etc/pass-vault-v2/server.env`:
@@ -92,6 +94,7 @@ NODE_ENV=production
 HOST=127.0.0.1
 PORT=3000
 DB_PATH=/var/lib/pass-vault-v2/pass-vault.sqlite
+ATTACHMENTS_DIR=/var/lib/pass-vault-v2/attachments
 ```
 
 ```bash
@@ -181,7 +184,7 @@ server {
   ssl_certificate /etc/letsencrypt/live/<APP_DOMAIN>/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/<APP_DOMAIN>/privkey.pem;
   add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-  client_max_body_size 3m;
+  client_max_body_size 110m;
   location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
@@ -225,7 +228,7 @@ With a new disposable account: register (12+ character password), sign in/unlock
 ## 9. Upgrade and rollback
 
 1. Record `readlink -f /opt/pass-vault-v2/current`.
-2. Make and validate an online backup as below.
+2. Make and validate a consistent SQLite + attachments backup as below; confirm adequate free disk.
 3. Install the new version into a new release directory and run all tests/build before activation.
 4. Switch atomically and restart:
 
@@ -245,17 +248,21 @@ sudo systemctl restart pass-vault-v2
 
 A code rollback does not roll back SQLite. Restore the pre-upgrade database only when schema/data compatibility requires it and only with the stopped-service restore procedure.
 
-## 10. Online SQLite backup
+## 10. Consistent SQLite and attachment backup
 
-Do not use ordinary `cp` while the service is running; WAL mode can make that copy inconsistent. Use SQLite `.backup`:
+Database rows and attachment objects must represent the same point in time. The simplest safe procedure pauses writes, backs up SQLite, and archives the attachment directory. Never copy a live WAL database or back up only one side.
 
 ```bash
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+sudo systemctl stop pass-vault-v2
 sudo -u pass-vault sqlite3 /var/lib/pass-vault-v2/pass-vault.sqlite \
   ".backup '/var/lib/pass-vault-v2/backup-$STAMP.sqlite'"
+sudo tar -C /var/lib/pass-vault-v2 -czf /var/backups/pass-vault-v2/attachments-$STAMP.tar.gz attachments
 sudo mv /var/lib/pass-vault-v2/backup-$STAMP.sqlite /var/backups/pass-vault-v2/
-sudo chmod 0600 /var/backups/pass-vault-v2/backup-$STAMP.sqlite
+sudo chmod 0600 /var/backups/pass-vault-v2/{backup-$STAMP.sqlite,attachments-$STAMP.tar.gz}
+sudo systemctl start pass-vault-v2
 sudo sqlite3 /var/backups/pass-vault-v2/backup-$STAMP.sqlite 'PRAGMA integrity_check;'
+sudo tar -tzf /var/backups/pass-vault-v2/attachments-$STAMP.tar.gz >/dev/null
 ```
 
 The result must be `ok`. Encrypt and copy backups to independent off-site storage, apply retention, and rehearse restores. Backups contain authentication material and ciphertext and remain sensitive.
@@ -266,11 +273,17 @@ Validate the backup before a maintenance window:
 
 ```bash
 BACKUP=/var/backups/pass-vault-v2/<BACKUP_FILE>.sqlite
+ATTACHMENTS_BACKUP=/var/backups/pass-vault-v2/<ATTACHMENTS_BACKUP>.tar.gz
 sudo sqlite3 "$BACKUP" 'PRAGMA integrity_check;'
+sudo tar -tzf "$ATTACHMENTS_BACKUP" >/dev/null
 sudo systemctl stop pass-vault-v2
 sudo cp -a /var/lib/pass-vault-v2/pass-vault.sqlite /var/backups/pass-vault-v2/failed-$(date -u +%Y%m%dT%H%M%SZ).sqlite
 sudo rm -f /var/lib/pass-vault-v2/pass-vault.sqlite-wal /var/lib/pass-vault-v2/pass-vault.sqlite-shm
 sudo install -o pass-vault -g pass-vault -m 0600 "$BACKUP" /var/lib/pass-vault-v2/pass-vault.sqlite
+sudo mv /var/lib/pass-vault-v2/attachments /var/backups/pass-vault-v2/failed-attachments-$(date -u +%Y%m%dT%H%M%SZ)
+sudo tar -C /var/lib/pass-vault-v2 -xzf "$ATTACHMENTS_BACKUP"
+sudo chown -R pass-vault:pass-vault /var/lib/pass-vault-v2/attachments
+sudo chmod 0700 /var/lib/pass-vault-v2/attachments
 sudo systemctl start pass-vault-v2
 curl -fsS http://127.0.0.1:3000/api/health
 ```
@@ -283,6 +296,7 @@ Then verify HTTPS, sign-in, and sample items. Retain the failed-state copy until
 - Disable SSH password/root login, use keys and least-privilege sudo, and restrict management sources.
 - Keep code root-owned and service-read-only; data writable only by the service; env 0640 and database/backups 0600.
 - Expose only 80/443 and restricted SSH; enforce HTTPS/HSTS and monitor certificates, disk, service health, and backups.
+- Size disk for SQLite, encrypted attachments, temporary uploads, one local backup, and upgrade headroom; monitor bytes and inodes, with suggested alerts at 70%/85%.
 - Never expose Node publicly, run it as root, disable Secure cookies, or log/share passwords, vault keys, plaintext, full ciphertext, or cookies.
 - Review `systemd-analyze security pass-vault-v2` and tighten the sandbox where compatible.
 

@@ -9,8 +9,8 @@ const out = join(root, 'release');
 const epoch = Number(process.env.SOURCE_DATE_EPOCH || 1783728000); // 2026-07-11 UTC
 const common = ['package-lock.json','LICENSE','README.md','README.en.md','SECURITY.md','CONTRIBUTING.md','CHANGELOG.md','public','shared','scripts/build.mjs','scripts/check.mjs','docs/API.md','docs/RELEASE.md'];
 const variants = {
-  cloudflare: ['apps/worker/src','apps/worker/migrations','apps/worker/tsconfig.json','tests/contract.test.js','tests/worker.test.js','docs/cloudflare-deployment.zh-CN.md','docs/cloudflare-deployment.en.md'],
-  linux: ['apps/server','deploy/pass-vault-v2.service','tests/contract.test.js','tests/server.integration.test.js','docs/server-deployment.zh-CN.md','docs/server-deployment.en.md'],
+  cloudflare: ['apps/worker/src','apps/worker/migrations','apps/worker/tsconfig.json','tests/attachment.test.js','tests/contract.test.js','tests/worker.test.js','docs/cloudflare-deployment.zh-CN.md','docs/cloudflare-deployment.en.md'],
+  linux: ['apps/server','deploy/pass-vault-v2.service','tests/attachment.test.js','tests/contract.test.js','tests/server.integration.test.js','docs/server-deployment.zh-CN.md','docs/server-deployment.en.md'],
 };
 
 function run(command, args, cwd=root) {
@@ -53,7 +53,8 @@ for (const [variant, extra] of Object.entries(variants)) {
     await writeFile(join(stage, 'apps/worker/wrangler.jsonc'), JSON.stringify({
       name: 'pass-vault-v2', workers_dev: true, main: 'src/index.ts',
       compatibility_date: '2026-07-11', compatibility_flags: ['nodejs_compat'],
-      d1_databases: [{ binding: 'DB', database_name: 'pass-vault-v2', database_id: '00000000-0000-0000-0000-000000000000', migrations_dir: 'migrations' }],
+      d1_databases: [{ binding: 'DB', database_name: 'your-d1-database-name', database_id: '00000000-0000-0000-0000-000000000000', migrations_dir: 'migrations' }],
+      r2_buckets: [{ binding: 'ATTACHMENTS', bucket_name: 'your-r2-attachments-bucket' }],
       assets: { directory: '../../dist', binding: 'ASSETS', run_worker_first: true },
       observability: { enabled: true, head_sampling_rate: 1 }
     }, null, 2) + '\n');

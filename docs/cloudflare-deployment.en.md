@@ -1,4 +1,4 @@
-# Cloudflare Deployment Guide (Workers + Static Assets + D1)
+# Cloudflare Deployment Guide (Workers + Static Assets + D1 + R2)
 
 [中文](cloudflare-deployment.zh-CN.md) · [English](cloudflare-deployment.en.md) · [Back to home](../README.en.md)
 
@@ -6,12 +6,13 @@ This guide is exclusively for Cloudflare deployment. Replace every `<...>` place
 
 ## Requirements and architecture
 
-- Node.js 22+, npm, Git, and a Cloudflare account with Workers and D1.
+- Node.js 22+, npm, Git, and a Cloudflare account with Workers, D1, and R2.
 - Wrangler authentication for CLI deployment; a connected GitHub repository or equivalent build/upload path for Dashboard deployment.
 
 ```text
 Browser ──HTTPS──> Cloudflare Worker
-                       ├─ /api/* → Worker → D1 binding: DB
+                       ├─ /api/* → Worker → D1: DB (encrypted metadata)
+                       │                  └→ R2: ATTACHMENTS (encrypted objects)
                        └─ other  → Workers Static Assets (dist/)
 ```
 
@@ -31,6 +32,7 @@ npx wrangler login
 npx wrangler whoami
 cd apps/worker
 npx wrangler d1 create <D1_DATABASE_NAME>
+npx wrangler r2 bucket create <R2_BUCKET_NAME>
 ```
 
 Copy the returned `database_id`. Edit `apps/worker/wrangler.jsonc`:
@@ -38,6 +40,7 @@ Copy the returned `database_id`. Edit `apps/worker/wrangler.jsonc`:
 - set `name` to `<WORKER_NAME>`;
 - keep binding `DB` and set the real `database_name`/`database_id`;
 - keep `migrations_dir` as `migrations`;
+- keep the R2 binding exactly `ATTACHMENTS` and set its `bucket_name`;
 - keep Assets at `../../dist` with `run_worker_first: true`;
 - remove sample routes or replace them with your domain. Keep placeholders on a public branch and inject real values through an uncommitted config or CI secrets.
 
@@ -75,10 +78,11 @@ Dashboard labels may change; follow the current UI.
 3. Set Root directory to repository root and Build command to `npm ci && npm run build`.
 4. This is not static-only Pages: it needs a Worker API plus Workers Static Assets. Where supported, set deploy command to `npx wrangler deploy --config apps/worker/wrangler.jsonc`. If import cannot honor the Worker main module, Assets, and D1, invoke Wrangler from Cloudflare CI/GitHub Actions instead of publishing plain Pages.
 5. Worker **Settings → Bindings → Add → D1 database**: variable name must be `DB`; select the target database.
-6. Prefer Wrangler migrations from a controlled terminal. If D1 **Console** is required, execute unapplied SQL under `apps/worker/migrations/` in order and inspect tables afterward; do not repeat non-idempotent migrations.
-7. Confirm Assets use built `dist/` and API requests reach the Worker first.
-8. Add `<APP_DOMAIN>` under **Settings → Domains & Routes**, then finish DNS/certificate setup.
-9. Store least-privilege `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as encrypted CI secrets, never repository values or log output.
+6. Create a private bucket under **Storage & Databases → R2 → Create bucket**; add it at Worker **Settings → Bindings → Add → R2 bucket** with variable name `ATTACHMENTS`.
+7. Prefer Wrangler migrations (including `0002_attachments.sql`) from a controlled terminal. If D1 **Console** is required, execute unapplied SQL under `apps/worker/migrations/` in order and inspect tables afterward.
+8. Confirm Assets use built `dist/` and API requests reach the Worker first.
+9. Add `<APP_DOMAIN>` under **Settings → Domains & Routes**, then finish DNS/certificate setup.
+10. Store least-privilege `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as encrypted CI secrets, never repository values or log output.
 
 ## 3. Post-deployment verification
 
@@ -87,11 +91,11 @@ curl -fsS https://<APP_DOMAIN>/api/health
 curl -fsSI https://<APP_DOMAIN>/
 ```
 
-Using a disposable account, test registration, sign-in/unlock, CSRF rejection, encrypted-item CRUD, encrypted backup import/export, and logout. Do not use real secrets or broad user-deletion queries.
+Using a disposable account, test registration, sign-in/unlock, CSRF rejection, encrypted item and attachment upload/download/delete, encrypted backup import/export, and logout. R2 needs neither public access nor a public domain, and bucket CORS is unnecessary: the browser talks only to the same-origin Worker, which accesses private R2 through its binding.
 
 ## 4. Upgrade, backup, restore, and rollback
 
-Export D1 before an upgrade and confirm the file is non-empty:
+Before upgrading, stop writes and back up D1 and R2 at one logical point. Export D1 and use a controlled tool or Cloudflare API to copy all R2 objects to an independent versioned bucket, retaining keys, sizes, and checksums under the same timestamp. Never back up D1 alone.
 
 ```bash
 cd apps/worker
@@ -103,7 +107,7 @@ npx wrangler d1 migrations apply <D1_DATABASE_NAME> --remote --config apps/worke
 npx wrangler deploy --config apps/worker/wrangler.jsonc
 ```
 
-Restrict and store the export off-site. Prefer restoring into a new D1, validating it, and switching binding `DB` instead of overwriting an active database:
+Restrict and store backups off-site. Restore into a new D1 and a new R2 bucket; import SQL, restore every object, verify counts and sizes, then switch `DB` and `ATTACHMENTS` bindings together before re-enabling writes:
 
 ```bash
 npx wrangler d1 create <RESTORE_DATABASE_NAME>
@@ -117,9 +121,15 @@ npx wrangler versions list --config apps/worker/wrangler.jsonc
 npx wrangler rollback <KNOWN_GOOD_VERSION_ID> --config apps/worker/wrangler.jsonc
 ```
 
-**Worker rollback does not roll back D1.** For an incompatible migration, stop writes and switch to a validated restored database, or use a reviewed forward-fix migration. Dashboard restoration should also use a new D1, reviewed SQL in Console (CLI for large exports), validation, and then a binding switch.
+**Worker rollback does not roll back D1 or R2.** For incompatible schema/object changes, switch both bindings to D1 + R2 restored from the same backup point, or use a reviewed forward fix.
 
-## 5. Security and troubleshooting
+## 5. Cost and limits
+
+- Workers, D1, and R2 free tiers, pricing, and limits change; review Cloudflare's official Pricing/Limits pages before deployment and configure billing alerts.
+- Attachments incur R2 storage and Class A/B operations; Worker requests and D1 queries are metered separately, and backup buckets add storage cost.
+- Application plaintext limits are 10 MiB per image, 100 MiB per video, and 25 MiB per other file. Video is fully downloaded and decrypted in-browser; no Range streaming or resumable upload is provided.
+
+## 6. Security and troubleshooting
 
 - Enable MFA on Cloudflare, use and rotate least-privilege API tokens, and secure GitHub/CI.
 - Use production only over HTTPS. Encrypt, restrict, store off-site, and rehearse backups.

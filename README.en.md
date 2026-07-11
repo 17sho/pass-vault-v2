@@ -9,6 +9,7 @@ A mobile-first, self-hosted, zero-knowledge password vault. The shared frontend 
 ## Features
 
 - Account, website, and secure-note records with tags, search, editing, and deletion
+- Note images and a standalone attachment library with filtering, preview/playback, download, rename, and deletion
 - Responsive desktop/mobile UI with no native client required
 - Encrypted backup import/export and master-password changes
 - Authentication, sessions, CSRF protection, origin checks, and rate limiting
@@ -20,17 +21,18 @@ A mobile-first, self-hosted, zero-knowledge password vault. The shared frontend 
 Master password (browser only)
   └─ PBKDF2-SHA-256 (random salt, 310,000 iterations) → KEK
        └─ unwraps a random AES-256-GCM vault key
-            └─ each item encrypted separately in browser → ciphertext envelope → backend
+            ├─ each item/attachment metadata encrypted in browser → ciphertext envelope → backend
+            └─ each attachment encrypted with a unique IV + authenticated AAD → ciphertext object → R2/server disk
 ```
 
-The server stores only authentication material, the wrapped vault key, and encrypted item envelopes. It should never receive the master password, vault key, or item plaintext. Zero knowledge does not replace a trusted endpoint, HTTPS, prompt updates, and tested backups; a malicious or compromised frontend can still steal unlocked data.
+The server stores only authentication material, the wrapped vault key, encrypted item/attachment metadata envelopes, and encrypted attachment objects. It should never receive plaintext filenames, MIME types, or file contents. It should never receive the master password, vault key, or item plaintext. Zero knowledge does not replace a trusted endpoint, HTTPS, prompt updates, and tested backups; a malicious or compromised frontend can still steal unlocked data.
 
 ## Cloudflare vs. Linux
 
 | | Cloudflare edition | Linux edition |
 |---|---|---|
 | Runtime | Workers + Static Assets | Node.js 22+ |
-| Database | D1 | SQLite file stored on the Linux server |
+| Database / attachment storage | D1 + R2 (R2 must be enabled and bound before using attachments) | SQLite + Linux server disk (attachments supported) |
 | Operations | Wrangler / Cloudflare Dashboard | systemd + Caddy/Nginx |
 | Best for | Serverless edge deployment | Full host and data-file control |
 | Data sync | **No automatic sync with Linux** | **No automatic sync with Cloudflare** |
@@ -60,9 +62,9 @@ Open `http://127.0.0.1:3000`. This section is only a quick developer preview, no
 
 The deployment methods are independent. Choose the matching guide:
 
-- **Cloudflare deployment guide**: [中文](docs/cloudflare-deployment.zh-CN.md) · **[English](docs/cloudflare-deployment.en.md)** — Workers + Static Assets + D1, including Wrangler CLI and Dashboard.
+- **Cloudflare deployment guide**: [中文](docs/cloudflare-deployment.zh-CN.md) · **[English](docs/cloudflare-deployment.en.md)** — Workers + Static Assets + D1 + R2, including Wrangler CLI and Dashboard. Attachments require R2 to be enabled first; this project does not claim a Cloudflare production deployment.
 - **Linux server deployment guide**: [中文](docs/server-deployment.zh-CN.md) · **[English](docs/server-deployment.en.md)** — VPS/dedicated-server Node.js + SQLite, systemd, Caddy/Nginx, backup and restore.
-- [Download the v1.0.0 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.0.0)
+- [Download the v1.1.0 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.0)
 
 The legacy combined deployment URL remains as a [short navigation page](docs/deployment.en.md) to avoid breaking external links.
 

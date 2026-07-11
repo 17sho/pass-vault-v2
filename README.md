@@ -9,6 +9,7 @@
 ## 功能
 
 - 保存账号、网站与安全笔记，支持标签、搜索、编辑与删除
+- 笔记图片与独立附件库：上传、筛选、预览/播放、下载、重命名和删除
 - 响应式桌面/移动界面，无需原生客户端
 - 加密备份导入/导出与主密码修改
 - 完整认证、会话、CSRF、同源检查和限速
@@ -20,17 +21,18 @@
 主密码（仅浏览器）
   └─ PBKDF2-SHA-256（随机盐，310,000 次）→ KEK
        └─ 解包随机 AES-256-GCM vault key
-            └─ 每个条目在浏览器单独加密 → 密文 envelope → 后端
+            ├─ 每个条目/附件元数据在浏览器单独加密 → 密文 envelope → 后端
+            └─ 每个附件以唯一 IV + 认证 AAD 加密 → 密文对象 → R2/服务器磁盘
 ```
 
-服务端只保存认证材料、被包装的 vault key 和条目密文，不应接触主密码、vault key 或条目明文。零知识设计不能替代可信终端、HTTPS、及时更新与可靠备份；恶意或被攻陷的前端仍可能窃取解锁后的数据。
+服务端只保存认证材料、被包装的 vault key、条目/附件元数据密文和附件密文对象，不应接触主密码、vault key、明文文件名、MIME 或内容。零知识设计不能替代可信终端、HTTPS、及时更新与可靠备份；恶意或被攻陷的前端仍可能窃取解锁后的数据。
 
 ## 两个版本的区别
 
 | | Cloudflare 版 | Linux 版 |
 |---|---|---|
 | 运行时 | Workers + Static Assets | Node.js 22+ |
-| 数据库 | D1 | 服务器本机 SQLite 文件 |
+| 数据库/附件存储 | D1 + R2（使用附件功能前必须先启用并绑定 R2） | SQLite + Linux 服务器磁盘（附件功能可用） |
 | 运维 | Wrangler / Cloudflare Dashboard | systemd + Caddy/Nginx |
 | 适合 | 无服务器、边缘部署 | 完全掌控主机与数据文件 |
 | 数据同步 | **不与 Linux 版自动同步** | **不与 Cloudflare 版自动同步** |
@@ -60,9 +62,9 @@ COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
 
 两种部署方式完全独立，请选择对应文档：
 
-- **Cloudflare 部署指南**：**[中文](docs/cloudflare-deployment.zh-CN.md)** · [English](docs/cloudflare-deployment.en.md) — Workers + Static Assets + D1，包含 Wrangler CLI 与 Dashboard。
+- **Cloudflare 部署指南**：**[中文](docs/cloudflare-deployment.zh-CN.md)** · [English](docs/cloudflare-deployment.en.md) — Workers + Static Assets + D1 + R2，含 Wrangler CLI 与 Dashboard 两种方式。附件功能要求先启用 R2；本项目不宣称 Cloudflare 生产环境已部署。
 - **Linux 服务器部署指南**：**[中文](docs/server-deployment.zh-CN.md)** · [English](docs/server-deployment.en.md) — VPS/独立服务器 Node.js + SQLite、systemd、Caddy/Nginx、备份恢复。
-- [下载 v1.0.0 Release 包](https://github.com/17sho/pass-vault-v2/releases/tag/v1.0.0)
+- [下载 v1.1.0 Release 包](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.0)
 
 旧的综合部署 URL 仍保留为[简短导航页](docs/deployment.zh-CN.md)，避免外部链接失效。
 

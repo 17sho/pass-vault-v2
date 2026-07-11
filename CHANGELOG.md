@@ -4,7 +4,11 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-11
+
 ### Added
+- Zero-knowledge note images and a standalone attachment library for Cloudflare R2 and Linux disk storage.
+- Encrypted attachment upload, preview/playback, download, rename, delete, filtering, and version 2 backup round-trips.
 - Bilingual Chinese/English project home pages.
 - Detailed bilingual Cloudflare CLI, Cloudflare Dashboard, and Linux deployment guides.
 - Security policy and contribution guide.
@@ -21,5 +25,6 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: <REPOSITORY_URL>/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/17sho/pass-vault-v2/compare/v1.0.0...v1.1.0
 [0.1.0]: <REPOSITORY_URL>/releases/tag/v0.1.0

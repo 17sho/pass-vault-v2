@@ -4,7 +4,7 @@ import worker from '../apps/worker/src/index.ts';
 
 class Result { constructor(results=[],meta={changes:0}){this.results=results;this.meta=meta;this.success=true} }
 class DB {
-  users=[]; sessions=[]; entries=[]; attempts=[];
+  users=[]; sessions=[]; entries=[]; attempts=[]; attachments=[]; failInsertAttachment=false;
   prepare(sql){return new Statement(this,sql)}
   async batch(stmts){const out=[];for(const s of stmts)out.push(await s.run());return out}
 }
@@ -16,6 +16,10 @@ class Statement {
     if(s.includes('FROM users WHERE username = ?'))return new Result(d.users.filter(x=>x.username===a[0]));
     if(s.includes('FROM sessions s JOIN users u'))return new Result(d.sessions.filter(x=>x.id_hash===a[0]&&x.expires_at>a[1]).map(x=>({...x,...d.users.find(u=>u.id===x.user_id)})));
     if(s.startsWith('SELECT id,type,version,iv,ciphertext FROM entries'))return new Result(d.entries.filter(x=>x.user_id===a[0]).map(({id,type,version,iv,ciphertext})=>({id,type,version,iv,ciphertext})));
+    if(s.startsWith('SELECT id,metadata_iv'))return new Result(d.attachments.filter(x=>x.user_id===a[0]).map(x=>({...x})));
+    if(s.startsWith('SELECT COUNT(*) AS count, COALESCE(SUM(ciphertext_size),0) AS total'))return new Result([{count:d.attachments.filter(x=>x.user_id===a[0]).length,total:d.attachments.filter(x=>x.user_id===a[0]).reduce((n,x)=>n+x.ciphertext_size,0)}]);
+    if(s.startsWith('SELECT 1 FROM attachments'))return new Result(d.attachments.filter(x=>x.user_id===a[0]&&x.id===a[1]));
+    if(s.startsWith('SELECT * FROM attachments'))return new Result(d.attachments.filter(x=>x.user_id===a[0]&&x.id===a[1]));
     if(s.startsWith('SELECT COUNT(*) AS count FROM login_attempts'))return new Result([{count:d.attempts.filter(x=>x.key===a[0]&&x.attempted_at>a[1]).length}]);
     throw Error('Unhandled all SQL: '+s)
   }
@@ -32,16 +36,20 @@ class Statement {
     if(s.startsWith('INSERT INTO entries')){const x={user_id:a[0],id:a[1],type:a[2],version:a[3],iv:a[4],ciphertext:a[5],updated_at:a[6]};d.entries=d.entries.filter(e=>!(e.user_id===x.user_id&&e.id===x.id));d.entries.push(x);return new Result([], {changes:1})}
     if(s.startsWith('DELETE FROM entries WHERE user_id = ? AND id')){const n=d.entries.length;d.entries=d.entries.filter(x=>!(x.user_id===a[0]&&x.id===a[1]));return new Result([], {changes:n-d.entries.length})}
     if(s.startsWith('DELETE FROM entries WHERE user_id')){d.entries=d.entries.filter(x=>x.user_id!==a[0]);return new Result([], {changes:1})}
+    if(s.startsWith('INSERT INTO attachments')){if(d.failInsertAttachment)throw Error('d1 failed');d.attachments.push({user_id:a[0],id:a[1],metadata_iv:a[2],metadata_ciphertext:a[3],object_key:a[4],ciphertext_size:a[5],created_at:a[6],updated_at:a[7]});return new Result([],{changes:1})}
+    if(s.startsWith('UPDATE attachments')){const x=d.attachments.find(x=>x.user_id===a[3]&&x.id===a[4]);Object.assign(x,{metadata_iv:a[0],metadata_ciphertext:a[1],updated_at:a[2]});return new Result([],{changes:1})}
+    if(s.startsWith('DELETE FROM attachments')){const n=d.attachments.length;d.attachments=d.attachments.filter(x=>!(x.user_id===a[0]&&x.id===a[1]));return new Result([],{changes:n-d.attachments.length})}
     if(s.startsWith('DELETE FROM sessions WHERE expires_at'))return new Result();
     throw Error('Unhandled run SQL: '+s)
   }
 }
-const env=()=>({DB:new DB(),ASSETS:{fetch:()=>new Response('asset')}});
-const call=(env,path,{method='GET',body,headers={}}={})=>worker.fetch(new Request('https://vault.test'+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...headers},body:body&&JSON.stringify(body)}),env,{waitUntil(){}});
+class R2 { objects=new Map(); failPut=false; failDelete=false; async put(k,v){if(this.failPut)throw Error('r2 put failed');this.objects.set(k,new Uint8Array(await new Response(v).arrayBuffer()))} async get(k){const v=this.objects.get(k);return v&&{body:v}} async delete(k){if(this.failDelete)throw Error('r2 delete failed');this.objects.delete(k)} }
+const env=()=>({DB:new DB(),ATTACHMENTS:new R2(),ASSETS:{fetch:()=>new Response('asset')}});
+const call=(env,path,{method='GET',body,raw,headers={}}={})=>worker.fetch(new Request('https://vault.test'+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...headers},body:raw??(body&&JSON.stringify(body))}),env,{waitUntil(){}});
 const creds={username:'alice',password:'correct horse battery',kdf:{salt:'client-salt',iterations:310000},wrappedKey:{iv:'opaque-iv',ciphertext:'opaque-wrapped-vault-key'}};
 async function login(e){await call(e,'/api/register',{method:'POST',body:creds});const r=await call(e,'/api/login',{method:'POST',body:{username:creds.username,password:creds.password},headers:{'CF-Connecting-IP':'1.2.3.4'}});return {json:await r.json(),cookie:r.headers.get('set-cookie').split(';')[0]}}
 
-test('静态资源和 API 都返回生产安全头',async()=>{const e=env();for(const path of ['/', '/api/health']){const r=await call(e,path);assert.match(r.headers.get('content-security-policy'),/frame-ancestors 'none'/);assert.equal(r.headers.get('strict-transport-security'),'max-age=63072000; includeSubDomains; preload');assert.equal(r.headers.get('x-content-type-options'),'nosniff');assert.equal(r.headers.get('x-frame-options'),'DENY');assert.equal(r.headers.get('referrer-policy'),'no-referrer')}});
+test('静态资源和 API 都返回生产安全头',async()=>{const e=env();for(const path of ['/', '/api/health']){const r=await call(e,path),csp=r.headers.get('content-security-policy');assert.match(csp,/frame-ancestors 'none'/);assert.match(csp,/script-src 'self'/);assert.match(csp,/img-src 'self' data: blob:/);assert.match(csp,/media-src 'self' blob:/);assert.doesNotMatch(csp,/script-src[^;]*(?:'unsafe-inline'|'unsafe-eval'|blob:)/);assert.equal(r.headers.get('strict-transport-security'),'max-age=63072000; includeSubDomains; preload');assert.equal(r.headers.get('x-content-type-options'),'nosniff');assert.equal(r.headers.get('x-frame-options'),'DENY');assert.equal(r.headers.get('referrer-policy'),'no-referrer')}});
 
 test('完整认证、会话、CSRF、密文 CRUD、备份和改密流程',async()=>{const e=env();const a=await login(e);assert.equal(typeof a.json.csrf,'string');assert.equal((await call(e,'/api/session',{headers:{cookie:a.cookie}})).status,200);
   assert.deepEqual(a.json.kdf,creds.kdf);assert.deepEqual(a.json.wrappedKey,creds.wrappedKey);assert.equal(typeof e.DB.users[0].kdf,'string');assert.equal(typeof e.DB.users[0].wrapped_key,'string');
@@ -73,3 +81,15 @@ test('改密区分当前密码与新密钥材料错误，并清除当前会话 c
   r=await call(e,'/api/change-password',{method:'POST',headers,body:{currentPassword:creds.password,newPassword:'another secure password',kdf:{salt:'new-salt',iterations:310000},wrappedKey:{iv:'new-iv',ciphertext:'new-wrap'}}});
   assert.equal(r.status,200);assert.match(r.headers.get('set-cookie'),/Max-Age=0/);assert.equal((await call(e,'/api/session',{headers:{cookie:a.cookie}})).status,401);
 });
+
+const metadata={version:1,iv:'metadata-iv',ciphertext:'encrypted-metadata'};
+test('Worker R2 附件 CRUD、CSRF、IDOR 与失败一致性',async()=>{const e=env(),a=await login(e),h={cookie:a.cookie,origin:'https://vault.test','x-csrf-token':a.json.csrf},bytes=new Uint8Array(16).fill(7),mh={...h,'content-length':'16','x-attachment-metadata':JSON.stringify(metadata)};
+ let r=await call(e,'/api/attachments/attach_123',{method:'POST',raw:bytes,headers:mh});assert.equal(r.status,201);assert.equal(e.ATTACHMENTS.objects.size,1);assert.equal((await (await call(e,'/api/attachments',{headers:{cookie:a.cookie}})).json()).items.length,1);r=await call(e,'/api/attachments/attach_123/content',{headers:{cookie:a.cookie}});assert.deepEqual(new Uint8Array(await r.arrayBuffer()),bytes);
+ r=await call(e,'/api/attachments/attach_123/metadata',{method:'PUT',body:{version:1,iv:'new',ciphertext:'cipher'},headers:h});assert.equal(r.status,200);assert.equal((await call(e,'/api/attachments/attach_123',{method:'DELETE',headers:{...h,'x-csrf-token':'bad'}})).status,403);
+ const b={...e,DB:e.DB},bob={...creds,username:'bob'};await call(b,'/api/register',{method:'POST',body:bob});const lr=await call(b,'/api/login',{method:'POST',body:{username:'bob',password:creds.password},headers:{'CF-Connecting-IP':'2'}});assert.equal((await call(b,'/api/attachments/attach_123/content',{headers:{cookie:lr.headers.get('set-cookie').split(';')[0]}})).status,404);
+ assert.equal((await call(e,'/api/attachments/attach_123',{method:'DELETE',headers:h})).status,204);assert.equal(e.ATTACHMENTS.objects.size,0);
+ e.ATTACHMENTS.failPut=true;assert.equal((await call(e,'/api/attachments/attach_456',{method:'POST',raw:bytes,headers:mh})).status,500);assert.equal(e.DB.attachments.length,0);e.ATTACHMENTS.failPut=false;e.DB.failInsertAttachment=true;assert.equal((await call(e,'/api/attachments/attach_456',{method:'POST',raw:bytes,headers:mh})).status,500);assert.equal(e.ATTACHMENTS.objects.size,0);
+});
+test('Worker 上传按实际流计数：允许缺 Content-Length，拒绝伪长度和实际超限',async()=>{const e=env(),a=await login(e),h={cookie:a.cookie,origin:'https://vault.test','x-csrf-token':a.json.csrf,'x-attachment-metadata':JSON.stringify(metadata)};let r=await call(e,'/api/attachments/attach_123',{method:'POST',raw:new Uint8Array(16),headers:h});assert.equal(r.status,201);r=await call(e,'/api/attachments/attach_456',{method:'POST',raw:new Uint8Array(16),headers:{...h,'content-length':'17'}});assert.equal(r.status,400);r=await call(e,'/api/attachments/attach_789',{method:'POST',raw:new Uint8Array(20*1024*1024+17),headers:h});assert.equal(r.status,413);assert.equal(e.DB.attachments.length,1)});
+test('Worker 删除 R2 失败时保留 DB 引用供重试',async()=>{const e=env(),a=await login(e),h={cookie:a.cookie,origin:'https://vault.test','x-csrf-token':a.json.csrf},mh={...h,'content-length':'16','x-attachment-metadata':JSON.stringify(metadata)};await call(e,'/api/attachments/retry_123',{method:'POST',raw:new Uint8Array(16),headers:mh});e.ATTACHMENTS.failDelete=true;assert.equal((await call(e,'/api/attachments/retry_123',{method:'DELETE',headers:h})).status,500);assert.equal(e.DB.attachments.length,1);e.ATTACHMENTS.failDelete=false;assert.equal((await call(e,'/api/attachments/retry_123',{method:'DELETE',headers:h})).status,204);assert.equal(e.DB.attachments.length,0)});
+test('Worker 备份 v2 往返且 v1 兼容，并拒绝损坏附件',async()=>{const e=env(),a=await login(e),h={cookie:a.cookie,origin:'https://vault.test','x-csrf-token':a.json.csrf};await call(e,'/api/attachments/attach_123',{method:'POST',raw:new Uint8Array(16).fill(3),headers:{...h,'content-length':'16','x-attachment-metadata':JSON.stringify(metadata)}});const backup=await (await call(e,'/api/backup?attachments=1',{headers:{cookie:a.cookie}})).json();assert.equal(backup.version,2);assert.ok(Array.isArray(backup.entries));assert.equal(backup.attachments.length,1);assert.ok(backup.attachments[0].sha256);assert.equal((await call(e,'/api/backup',{method:'PUT',body:backup,headers:h})).status,200);assert.equal((await call(e,'/api/backup',{method:'PUT',body:{version:1,kdf:backup.kdf,wrappedKey:backup.wrappedKey,envelopes:[]},headers:h})).status,200);for(const mutate of [x=>x.attachments.push({...x.attachments[0]}),x=>delete x.attachments[0].object,x=>x.attachments[0].ciphertextSize++,x=>x.attachments[0].sha256='bad']){const x=structuredClone(backup);mutate(x);assert.equal((await call(e,'/api/backup',{method:'PUT',body:x,headers:h})).status,400)}});
