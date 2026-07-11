@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-07-11
+
+### Fixed / 修复
+- 修复 iPhone Safari 长列表中部和底部条目的更多操作菜单被定位到可视区域下方、导致“编辑/删除”不可见的问题；菜单现在按可视视口固定定位并在空间不足时向上翻转。
+- Fixed iPhone Safari overflow menus for middle and bottom rows being positioned below the visible viewport; menus now use visual-viewport-aware fixed placement and flip above the trigger when needed.
+- 保留点击外部、Escape 和滚动关闭行为，且不产生横向溢出。
+- Preserved outside-click, Escape, and scroll dismissal without introducing horizontal overflow.
+
 ## [1.1.5] - 2026-07-11
 
 ### Fixed / 修复
@@ -55,7 +63,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.5...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/17sho/pass-vault-v2/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/17sho/pass-vault-v2/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/17sho/pass-vault-v2/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/17sho/pass-vault-v2/compare/v1.1.2...v1.1.3

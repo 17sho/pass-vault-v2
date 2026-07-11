@@ -109,6 +109,14 @@ test('320/768/1440 响应式、手机全屏详情、键盘可达',async()=>{
  await page.screenshot({path:`artifacts/layout-${width}.png`,fullPage:true});assert.deepEqual(errors,[]);await page.close();}
 });
 
+test('WebKit iPhone 长列表的顶部、中部和末行菜单始终在视口内且可点击',async()=>{
+ const safari=await webkit.launch({headless:true});const context=await safari.newContext({...devices['iPhone 13']});const page=await context.newPage();
+ try{await register(page);for(let i=1;i<=12;i++){await create(page,'网站',{'名称':`长列表网站 ${String(i).padStart(2,'0')}`,'网址':`https://site-${i}.example`,'说明':'移动菜单回归','标签（逗号分隔）':''});await page.getByText('已保存',{exact:true}).waitFor()}
+  const evidence=[];for(const index of [0,5,11]){const card=page.locator('.item-card').nth(index);await card.scrollIntoViewIfNeeded();const more=card.getByRole('button',{name:/的更多操作/});await more.click();const menu=card.getByRole('menu');const state=await menu.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el),card=el.closest('.item-card'),list=el.closest('#list'),collection=el.closest('.collection');return{rect:{top:r.top,right:r.right,bottom:r.bottom,left:r.left,width:r.width,height:r.height},hidden:el.hidden,display:s.display,visibility:s.visibility,position:s.position,zIndex:s.zIndex,viewport:{width:innerWidth,height:innerHeight},overflow:{card:getComputedStyle(card).overflow,list:getComputedStyle(list).overflow,collection:getComputedStyle(collection).overflow},documentOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth}});evidence.push({index,...state});assert.equal(state.hidden,false);assert.ok(state.rect.top>=0&&state.rect.bottom<=state.viewport.height,JSON.stringify(state));assert.ok(state.rect.left>=0&&state.rect.right<=state.viewport.width,JSON.stringify(state));assert.equal(state.documentOverflow,false);await menu.getByRole('menuitem',{name:'编辑'}).click();assert.equal(await page.locator('#editor').isVisible(),true);await page.locator('#editor').getByRole('button',{name:'取消'}).click();await page.locator('#editor').waitFor({state:'hidden'})}
+  await page.screenshot({path:'artifacts/mobile-overflow-menu-webkit.png',fullPage:false});console.log('MOBILE_MENU_EVIDENCE '+JSON.stringify(evidence));
+ }finally{await context.close();await safari.close()}
+});
+
 test('列表更多操作不冒泡，可取消并支持外部点击与 Escape 关闭',async()=>{
  const page=await browser.newPage({viewport:{width:320,height:800}});await register(page);await create(page,'笔记',{'标题':'待删除笔记','正文':'正文','标签（逗号分隔）':''});
  const card=page.locator('.item-card',{hasText:'待删除笔记'}),more=card.getByRole('button',{name:'待删除笔记的更多操作'});
