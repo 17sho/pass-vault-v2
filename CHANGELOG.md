@@ -4,6 +4,12 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-07-11
+
+### Fixed
+- Release R2 storage-byte reservations when an upload fails after quota reservation, including R2 put and D1 metadata insert failures.
+- Release the exact new/old storage delta when attachment backup replacement fails, while conservatively retaining attempted Class A operation counts.
+
 ## [1.1.2] - 2026-07-11
 
 ### Added
@@ -37,7 +43,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/17sho/pass-vault-v2/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/17sho/pass-vault-v2/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/17sho/pass-vault-v2/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/17sho/pass-vault-v2/compare/v1.0.0...v1.1.0
