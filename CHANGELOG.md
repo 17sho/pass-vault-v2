@@ -4,9 +4,17 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-07-11
+
 ### Added / 新增
 - 新增完全在浏览器内运行的当前分类模糊搜索：优先精确与子串结果，支持大小写/空白/标点归一化、中文片段、英文拼写与相邻换位容错及连续字母匹配；仅搜索各资料类型和附件的可见元数据，不向服务器发送明文查询。
 - Added category-scoped fuzzy search that stays entirely in the browser, prioritizes exact/substring results, normalizes case/spacing/punctuation, and supports Chinese fragments, Latin typo/transposition tolerance, and subsequences while limiting matches to visible item/attachment metadata.
+
+### Fixed / 修复
+- 初始登录页在普通动态效果下仅执行一次轻量入场；减少动态效果时立即显示，切换登录/注册或显示错误均不重播。
+- The initial authentication screen now performs one lightweight entrance with normal motion, appears immediately with reduced motion, and never replays on mode switches or errors.
+- 登录成功后仅保留一次纯透明度密码库显示，不移动或重建列表卡片；Linux 附件集成测试显式隔离每个临时附件目录，避免共享服务器环境状态引发 `ENOENT`。
+- Login keeps one opacity-only vault reveal without moving or rebuilding cards; Linux attachment integration tests now isolate each temporary attachment directory instead of inheriting shared server environment state that caused `ENOENT`.
 
 ## [1.1.7] - 2026-07-11
 
@@ -75,7 +83,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.7...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.8...HEAD
+[1.1.8]: https://github.com/17sho/pass-vault-v2/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/17sho/pass-vault-v2/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/17sho/pass-vault-v2/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/17sho/pass-vault-v2/compare/v1.1.4...v1.1.5
