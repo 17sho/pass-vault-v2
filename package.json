@@ -15,7 +15,7 @@
   "type": "module",
   "scripts": {
     "pretest": "node scripts/build.mjs",
-    "test": "node --experimental-strip-types --test tests/*.test.js",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/*.test.js",
     "lint": "node scripts/check.mjs",
     "typecheck": "tsc --noEmit -p apps/worker/tsconfig.json",
     "build": "node scripts/build.mjs",
