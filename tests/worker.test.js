@@ -5,7 +5,7 @@ import { Miniflare } from 'miniflare';
 
 class Result { constructor(results=[],meta={changes:0}){this.results=results;this.meta=meta;this.success=true} }
 class DB {
-  users=[]; sessions=[]; entries=[]; attempts=[]; attachments=[]; failInsertAttachment=false;
+  users=[]; sessions=[]; entries=[]; attempts=[]; attachments=[]; usage=[]; storage=0; failInsertAttachment=false;
   prepare(sql){return new Statement(this,sql)}
   async batch(stmts){const out=[];for(const s of stmts)out.push(await s.run());return out}
 }
@@ -19,12 +19,17 @@ class Statement {
     if(s.startsWith('SELECT id,type,version,iv,ciphertext FROM entries'))return new Result(d.entries.filter(x=>x.user_id===a[0]).map(({id,type,version,iv,ciphertext})=>({id,type,version,iv,ciphertext})));
     if(s.startsWith('SELECT id,metadata_iv'))return new Result(d.attachments.filter(x=>x.user_id===a[0]).map(x=>({...x})));
     if(s.startsWith('SELECT COUNT(*) AS count, COALESCE(SUM(ciphertext_size),0) AS total'))return new Result([{count:d.attachments.filter(x=>x.user_id===a[0]).length,total:d.attachments.filter(x=>x.user_id===a[0]).reduce((n,x)=>n+x.ciphertext_size,0)}]);
+    if(s.startsWith('SELECT COALESCE(SUM(ciphertext_size),0) AS total FROM attachments'))return new Result([{total:d.attachments.reduce((n,x)=>n+x.ciphertext_size,0)}]);
     if(s.startsWith('SELECT 1 FROM attachments'))return new Result(d.attachments.filter(x=>x.user_id===a[0]&&x.id===a[1]));
     if(s.startsWith('SELECT * FROM attachments'))return new Result(d.attachments.filter(x=>x.user_id===a[0]&&x.id===a[1]));
     if(s.startsWith('SELECT COUNT(*) AS count FROM login_attempts'))return new Result([{count:d.attempts.filter(x=>x.key===a[0]&&x.attempted_at>a[1]).length}]);
     throw Error('Unhandled all SQL: '+s)
   }
   async run(){const[d,s,a]=[this.db,this.sql,this.args];
+    if(s.startsWith('INSERT INTO r2_monthly_usage')){if(!d.usage.some(x=>x.month===a[0]))d.usage.push({month:a[0],class_a:0,class_b:0});return new Result([],{changes:1})}
+    if(s.startsWith('INSERT INTO r2_storage_usage')){d.storage=Math.max(d.storage,a[0]);return new Result([],{changes:1})}
+    if(s.startsWith('UPDATE r2_monthly_usage SET')){const kind=s.includes('class_a=')?'class_a':'class_b',x=d.usage.find(x=>x.month===a[1]);if(x&&x[kind]+a[0]<=a[3]){x[kind]+=a[0];return new Result([],{changes:1})}return new Result()}
+    if(s.startsWith('UPDATE r2_storage_usage')){if(d.storage+a[0]>=0&&d.storage+a[0]<=a[3]){d.storage+=a[0];return new Result([],{changes:1})}return new Result()}
     if(s.startsWith('INSERT INTO users')){d.users.push({id:a[0],username:a[1],password_hash:a[2],password_salt:a[3],kdf:a[4],wrapped_key:a[5],created_at:a[6]});return new Result([], {changes:1})}
     if(s.startsWith('INSERT INTO sessions')){d.sessions.push({id_hash:a[0],user_id:a[1],csrf_hash:a[2],expires_at:a[3]});return new Result([], {changes:1})}
     if(s.startsWith('INSERT INTO login_attempts')){d.attempts.push({key:a[0],attempted_at:a[1]});return new Result([], {changes:1})}

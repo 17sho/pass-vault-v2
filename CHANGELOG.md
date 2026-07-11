@@ -4,6 +4,12 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-07-11
+
+### Added
+- Conservative D1-backed, atomic R2 storage and monthly Class A/B hard limits with explicit Chinese quota feedback.
+- Bilingual documentation of account-wide free allowances, alert limitations, and residual billing risks.
+
 ## [1.1.1] - 2026-07-11
 
 ### Fixed
@@ -31,7 +37,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/17sho/pass-vault-v2/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/17sho/pass-vault-v2/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/17sho/pass-vault-v2/compare/v1.0.0...v1.1.0
 [0.1.0]: <REPOSITORY_URL>/releases/tag/v0.1.0

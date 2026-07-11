@@ -125,7 +125,10 @@ npx wrangler rollback <KNOWN_GOOD_VERSION_ID> --config apps/worker/wrangler.json
 
 ## 5. Cost and limits
 
-- Workers, D1, and R2 free tiers, pricing, and limits change; review Cloudflare's official Pricing/Limits pages before deployment and configure billing alerts.
+- Cloudflare currently includes, **account-wide**, 10 GB-month of R2 Standard storage, 1,000,000 Class A operations, and 10,000,000 Class B operations per month; these are not per-bucket allowances. The official R2 Limits page lists per-bucket storage as Unlimited and exposes no native bucket hard spend/usage cap.
+- This project therefore atomically reserves quota in D1 before R2 work, using UTC calendar months: 8 GiB encrypted bytes, 800,000 Class A/month, and 8,000,000 Class B/month. It returns `quota_exceeded` at a cap and conservatively retains counts for attempted failures. Object delete is free under the official pricing classification; a successful delete releases its storage reservation.
+- The 20% margin is for other account usage and metering differences, but **does not guarantee a zero bill**. Other buckets, Dashboard, S3/API, and other Workers bypass this application's counters; GB-month also differs from instantaneous bytes. Monitor account-wide usage and billing too.
+- Cloudflare Budget Alerts are account-wide dollar-spend notifications only: they alert but do not stop spend. There is no product-specific API alert at 80% of the R2 free allowance, so do not treat a billing alert as a cap.
 - Attachments incur R2 storage and Class A/B operations; Worker requests and D1 queries are metered separately, and backup buckets add storage cost.
 - Application plaintext limits are 10 MiB per image, 100 MiB per video, and 25 MiB per other file. Video is fully downloaded and decrypted in-browser; no Range streaming or resumable upload is provided.
 
