@@ -125,12 +125,32 @@ npx wrangler rollback <KNOWN_GOOD_VERSION_ID> --config apps/worker/wrangler.json
 
 ## 5. 费用与限制
 
+- **本部署所需的 Workers、Workers Static Assets、D1、R2 Standard、Cloudflare DNS/代理、通用 SSL 与基础 DDoS 防护都有免费层，不要求为了运行本项目升级 Pro 或 Workers Paid。** 但“产品有免费层”不等于“整个账户永远不会产生账单”：付费订阅、同账户其他项目及 R2 超额仍需在 Billing/Usage 中核对。
+- Workers Free 的请求/CPU 配额以 Cloudflare 当前官方说明为准；达到 Free 限制时请求会受限。D1 Free 当前包含每天 5,000,000 行读取、100,000 行写入及账户总计 5 GB 存储；达到 Free 日限额时相关查询会失败，而不是由本项目自动升级付费计划。
 - Cloudflare 当前 R2 Standard 免费额度为**整个账户合计**每月 10 GB-month 存储、1,000,000 次 Class A、10,000,000 次 Class B；不是每个 bucket 独享。官方 R2 Limits 将每 bucket 存储列为 Unlimited，未提供 bucket 原生硬消费/用量封顶。
 - 本项目因此在 D1 中按 UTC 自然月、于 R2 操作前原子 reservation：密文字节 8 GiB、Class A 800,000/月、Class B 8,000,000/月。达到上限返回 `quota_exceeded`，失败的已尝试操作仍保守计数；删除对象按官方定价为免费操作，成功后释放存储 reservation。
 - 20% 余量用于账户内其他用量及计量差异，但**不能保证零账单**：同账户其他 bucket、Dashboard、S3/API/其他 Worker 访问均绕过本应用计数；GB-month 也不是瞬时字节数。请同时检查账户级用量和账单。
 - Cloudflare Budget Alert 是账户级美元支出通知，只告警、不停止消费；没有 R2 免费额度 80% 的产品级硬告警 API。不要把它当硬上限。
 - 附件会产生 R2 存储与 Class A/B 操作，Worker 请求和 D1 查询分别计量；备份 bucket 也增加存储成本。
 - 应用明文限制：图片 10 MiB、视频 100 MiB、其他文件 25 MiB；视频完整下载后在浏览器解密播放，不支持 Range 或断点续传。
+
+### 免费部署检查清单
+
+1. **Account → Billing → Subscriptions**：确认没有为了本项目启用 Workers Paid、Zone Pro、Argo、Images、Stream 等付费订阅。
+2. **Account → Billing → Bills and documents**：确认没有待付账单。
+3. **Storage & Databases → R2 → Overview/Usage**：检查整个账户（不是单 bucket）的存储、Class A、Class B 月度用量。
+4. **D1 → 目标数据库 → Metrics → Row Metrics**：检查每日 rows read/written 与总存储。
+5. **Workers & Pages → 目标 Worker → Metrics**：检查请求和 CPU 用量。
+
+> 本项目的 8 GiB / 800,000 Class A / 8,000,000 Class B 限制只覆盖经此 Worker 发起的操作。Dashboard、S3 API、其他 Worker 或其他 bucket 不受它约束。Budget Alert 也只提醒，不会自动停止消费。
+
+### Web Analytics 与密码库 CSP
+
+Cloudflare Web Analytics 的 zone 级 `auto_install` 可能把 `static.cloudflareinsights.com/beacon.min.js` 自动注入密码库页面，与本项目严格的 `script-src 'self'` CSP 冲突。**不要为了统计脚本放宽 CSP，也不要把 Beacon 代码手动加入密码库。**
+
+- 免费套餐若不提供按 hostname 排除规则，可在 **Analytics & Logs → Web Analytics → 站点 → Manage site → RUM** 选择 **Enable and install JS snippet / 启用并安装 JS 片段**，使 Cloudflare 停止自动注入；仅在其他非敏感站点手动安装代码。
+- 若整个 zone 都不需要统计，可选择 Disable；不要为了一个子域名贸然删除或关闭仍被其他站点使用的统计。
+- 更新后等待边缘配置传播，并在真实浏览器确认 DOM 不含 `data-cf-beacon`、控制台无 CSP violation。
 
 ## 6. 安全与故障排查
 

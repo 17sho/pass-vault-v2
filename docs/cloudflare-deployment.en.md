@@ -125,12 +125,32 @@ npx wrangler rollback <KNOWN_GOOD_VERSION_ID> --config apps/worker/wrangler.json
 
 ## 5. Cost and limits
 
+- **Workers, Workers Static Assets, D1, R2 Standard, Cloudflare DNS/proxy, Universal SSL, and baseline DDoS protection all have free tiers; this project does not require Zone Pro or Workers Paid.** A free tier does not guarantee that the entire account can never be billed: paid subscriptions, other account workloads, and R2 overage must still be checked under Billing/Usage.
+- Workers Free request/CPU limits follow the current official documentation and requests are limited when the Free allowance is reached. D1 Free currently includes 5,000,000 rows read/day, 100,000 rows written/day, and 5 GB total account storage; Free-tier queries fail at the daily limit rather than this project automatically upgrading the account.
 - Cloudflare currently includes, **account-wide**, 10 GB-month of R2 Standard storage, 1,000,000 Class A operations, and 10,000,000 Class B operations per month; these are not per-bucket allowances. The official R2 Limits page lists per-bucket storage as Unlimited and exposes no native bucket hard spend/usage cap.
 - This project therefore atomically reserves quota in D1 before R2 work, using UTC calendar months: 8 GiB encrypted bytes, 800,000 Class A/month, and 8,000,000 Class B/month. It returns `quota_exceeded` at a cap and conservatively retains counts for attempted failures. Object delete is free under the official pricing classification; a successful delete releases its storage reservation.
 - The 20% margin is for other account usage and metering differences, but **does not guarantee a zero bill**. Other buckets, Dashboard, S3/API, and other Workers bypass this application's counters; GB-month also differs from instantaneous bytes. Monitor account-wide usage and billing too.
 - Cloudflare Budget Alerts are account-wide dollar-spend notifications only: they alert but do not stop spend. There is no product-specific API alert at 80% of the R2 free allowance, so do not treat a billing alert as a cap.
 - Attachments incur R2 storage and Class A/B operations; Worker requests and D1 queries are metered separately, and backup buckets add storage cost.
 - Application plaintext limits are 10 MiB per image, 100 MiB per video, and 25 MiB per other file. Video is fully downloaded and decrypted in-browser; no Range streaming or resumable upload is provided.
+
+### Free-deployment checklist
+
+1. **Account → Billing → Subscriptions**: verify that Workers Paid, Zone Pro, Argo, Images, Stream, or another paid subscription was not enabled for this deployment.
+2. **Account → Billing → Bills and documents**: verify that no invoice is due.
+3. **Storage & Databases → R2 → Overview/Usage**: inspect account-wide (not per-bucket) storage and monthly Class A/B usage.
+4. **D1 → database → Metrics → Row Metrics**: inspect daily rows read/written and total storage.
+5. **Workers & Pages → Worker → Metrics**: inspect request and CPU usage.
+
+> The project's 8 GiB / 800,000 Class A / 8,000,000 Class B caps cover only operations routed through this Worker. Dashboard, S3 API, other Workers, and other buckets bypass them. Budget Alerts notify; they do not stop spend.
+
+### Web Analytics and the vault CSP
+
+Zone-level Cloudflare Web Analytics `auto_install` may inject `static.cloudflareinsights.com/beacon.min.js` into the vault and conflict with the strict `script-src 'self'` CSP. **Do not weaken CSP or manually install the Beacon in either vault.**
+
+- If the Free plan does not offer hostname exclusion rules, open **Analytics & Logs → Web Analytics → site → Manage site → RUM** and choose **Enable and install JS snippet**. This stops automatic injection; manually install the snippet only on other, non-sensitive sites that need analytics.
+- If the entire zone needs no analytics, choose Disable. Do not delete or disable zone-wide analytics for one hostname without checking other sites.
+- Allow edge configuration to propagate, then verify in a real browser that the DOM contains no `data-cf-beacon` and the console has no CSP violation.
 
 ## 6. Security and troubleshooting
 
