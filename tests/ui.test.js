@@ -40,6 +40,27 @@ async function create(page,type, values){
   await editor.getByRole('button',{name:'保存'}).click();
 }
 
+test('WebKit 网站新建与列表菜单编辑保存不把 null 当作当前详情', async()=>{
+ const safari=await webkit.launch({headless:true});
+ const context=await safari.newContext({...devices['iPhone 13']});
+ const page=await context.newPage(),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+ try {
+  await register(page);
+  await create(page,'网站',{'名称':'Safari One','网址':'https://one.example','说明':'one','标签（逗号分隔）':''});
+  await page.getByText('已保存',{exact:true}).waitFor();
+  await create(page,'网站',{'名称':'Safari Two','网址':'https://two.example','说明':'two','标签（逗号分隔）':''});
+  await page.getByText('已保存',{exact:true}).waitFor();
+  const card=page.locator('.item-card',{hasText:'Safari One'});
+  await card.getByRole('button',{name:'Safari One的更多操作'}).click();
+  await card.getByRole('menuitem',{name:'编辑'}).click();
+  const editor=page.locator('#editor');await editor.getByLabel('名称').fill('Safari One Edited');await editor.getByRole('button',{name:'保存'}).click();
+  await page.getByText('已保存',{exact:true}).waitFor();
+  assert.deepEqual(await page.locator('.item-card b').allTextContents(),['Safari One Edited','Safari Two']);
+  assert.deepEqual(errors,[]);
+ } finally {await context.close();await safari.close()}
+});
+
 test('旧版 iPhone Safari 无 crypto.randomUUID 仍可保存笔记', async()=>{
  const safari=await webkit.launch({headless:true});
  const context=await safari.newContext({...devices['iPhone 13']});

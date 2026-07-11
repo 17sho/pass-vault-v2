@@ -4,6 +4,12 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-11
+
+### Fixed / 修复
+- 修复 Safari 新建条目保存成功后因 `editing` 与 `currentDetail` 同为 `null` 而错误打开空详情、显示 `null is not an object (evaluating 'x.type')` 的问题。
+- Fixed Safari saves incorrectly treating two null state values as an active edited detail, which called detail rendering with `null` after a successful create.
+
 ## [1.1.4] - 2026-07-11
 
 ### Fixed / 修复
@@ -49,7 +55,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/17sho/pass-vault-v2/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/17sho/pass-vault-v2/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/17sho/pass-vault-v2/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/17sho/pass-vault-v2/compare/v1.1.1...v1.1.2
