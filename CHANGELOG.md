@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-07-11
+
+### Fixed / 修复
+- 修复登录成功后认证页退场、密码库入场与列表入场动画叠加，并因重复渲染重建卡片而产生的可见抖动；登录现在只执行一次无位移、无透明度变化的稳定提交与显示。
+- Fixed visible login jitter caused by compounded auth-out, vault-in, and list-in animations plus duplicate card rendering; login now performs one stable commit and reveal with no translation or opacity transition.
+- 保留退出登录的原有退场/入场动效，并新增 Chromium 390、WebKit iPhone 与减少动态效果模式的登录稳定性回归。
+- Preserved the existing logout transition and added Chromium 390, WebKit iPhone, and reduced-motion login stability coverage.
+
 ## [1.1.6] - 2026-07-11
 
 ### Fixed / 修复
@@ -63,7 +71,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.7...HEAD
+[1.1.7]: https://github.com/17sho/pass-vault-v2/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/17sho/pass-vault-v2/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/17sho/pass-vault-v2/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/17sho/pass-vault-v2/compare/v1.1.3...v1.1.4
