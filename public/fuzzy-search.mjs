@@ -53,5 +53,5 @@ function fieldScore(query,raw){
 export function rankSearchResults(items,query,fields){
  const normalized=normalizeSearchText(query);
  if(!normalized)return items.slice();
- return items.map((item,index)=>({item,index,score:Math.min(...fields.flatMap(field=>field==='credentials'?(item.credentials||[]).map(row=>fieldScore(normalized,row.username)):[fieldScore(normalized,item[field])]))})).filter(x=>Number.isFinite(x.score)).sort((a,b)=>a.score-b.score||a.index-b.index).map(x=>x.item);
+ return items.map((item,index)=>({item,index,score:Math.min(...fields.flatMap(field=>field==='credentials'?(Array.isArray(item.credentials)?item.credentials:[]).map(row=>fieldScore(normalized,row?.username)):[fieldScore(normalized,item[field])]))})).filter(x=>Number.isFinite(x.score)).sort((a,b)=>a.score-b.score||a.index-b.index).map(x=>x.item);
 }

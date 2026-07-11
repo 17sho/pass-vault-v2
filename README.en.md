@@ -66,7 +66,7 @@ The deployment methods are independent. Choose the matching guide:
 
 - **Cloudflare deployment guide**: [中文](docs/cloudflare-deployment.zh-CN.md) · **[English](docs/cloudflare-deployment.en.md)** — Workers + Static Assets + D1 + R2, including Wrangler CLI and Dashboard. Attachments require R2 to be enabled first; this project does not claim a Cloudflare production deployment.
 - **Linux server deployment guide**: [中文](docs/server-deployment.zh-CN.md) · **[English](docs/server-deployment.en.md)** — VPS/dedicated-server Node.js + SQLite, systemd, Caddy/Nginx, backup and restore.
-- [Download the latest v1.1.8 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.8)
+- [Download the latest v1.1.9 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.9)
 
 Workers, Static Assets, D1, R2 Standard, DNS, and SSL all have free tiers. The Cloudflare guide now documents D1/R2 allowances, conservative application R2 caps, account-wide shared-usage risk, Billing/Usage checks, and how to prevent Web Analytics auto-injection from conflicting with the vault CSP.
 

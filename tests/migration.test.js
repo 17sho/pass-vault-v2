@@ -20,3 +20,10 @@ test('plaintext migration encrypts locally before upload and never sends plainte
   assert.deepEqual(sent,[{id:'legacy-25',type:'note',version:1,iv:'iv',ciphertext:'encrypted:Memo'}]);
   assert.equal(JSON.stringify(sent).includes('secret body'),false);
 });
+
+test('migration accepts canonical and legacy accounts and uploads canonical plaintext only',async()=>{
+  const canonical={id:'canonical_1',type:'account',data:{platform:'A',loginUrl:'',credentials:[{username:'u',password:'p'}],notes:'',tags:[]}};
+  const legacy={id:'legacy_123',type:'account',data:{platform:'B',loginUrl:'',username:'old',password:'secret',notes:'',tags:[]}},seen=[];
+  await importMigration({format:'pass-vault-v2-plaintext-migration',version:1,items:[canonical,legacy]},'key',async(_key,data)=>{seen.push(data);return{iv:'iv',ciphertext:'cipher'}},async()=>{});
+  assert.deepEqual(seen,[canonical.data,{platform:'B',loginUrl:'',notes:'',tags:[],credentials:[{username:'old',password:'secret'}]}]);
+});

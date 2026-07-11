@@ -4,6 +4,16 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-07-11
+
+### Added / 新增
+- 账号条目支持 1–20 组独立账号与密码，包含逐行添加、移除、显示、复制、搜索、编辑与持久化；320px 和 iPhone Safari 均有专门回归测试。
+- Account entries support 1–20 independent credential pairs with per-row add, remove, reveal, copy, search, edit, and persistence coverage on 320px and iPhone Safari.
+
+### Security / 安全
+- 旧版顶层账号/密码在浏览器内规范化为 `credentials`；服务端仍只接收密文 envelope。拒绝半空、超限、混合或含未知敏感字段的结构，且密码不进入列表或搜索索引。
+- Legacy top-level credentials normalize in-browser to canonical arrays while servers continue receiving encrypted envelopes only. Half-empty, oversized, mixed, and unknown-sensitive-field shapes are rejected, and passwords never enter list or search indexes.
+
 ## [1.1.8] - 2026-07-11
 
 ### Added / 新增
@@ -83,7 +93,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.8...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.9...HEAD
+[1.1.9]: https://github.com/17sho/pass-vault-v2/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/17sho/pass-vault-v2/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/17sho/pass-vault-v2/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/17sho/pass-vault-v2/compare/v1.1.5...v1.1.6
