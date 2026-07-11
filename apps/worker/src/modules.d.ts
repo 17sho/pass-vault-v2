@@ -1,0 +1,1 @@
+declare module '*.mjs' { export function validEnvelope(value:unknown):boolean; export function validKeyMaterial(value:unknown):boolean; export function validateUsername(value:unknown):{valid:boolean;value:string}; }

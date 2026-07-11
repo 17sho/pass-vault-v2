@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+
+# Environment, credentials, keys, and local Cloudflare state
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler/
+.wrangler-state/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
+
+# Databases, exports, backups, deployment records, and user data
+data/
+**/deployment-records/
+**/d1-export*/
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.sqlite-*
+*.db-*
+*.sql.gz
+*.dump
+*.backup
+*.bak
+
+# Generated output, releases, and test evidence
+dist/
+build/
+release/
+release-verify/
+coverage/
+.nyc_output/
+artifacts/
+test-results/
+playwright-report/
+blob-report/
+*.log
+
+# Caches and temporary files
+.cache/
+.tmp/
+tmp/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local IDE settings
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+export const TYPES=['account','website','note'];
+const plainObject=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+export function validateUsername(x){if(typeof x!=='string')return{valid:false,value:''};const value=x.trim();if(!value||value.length>80||/[\p{Cc}\p{Cf}]/u.test(value))return{valid:false,value:''};return{valid:true,value}}
+export function validKdf(x){return plainObject(x)&&Object.keys(x).every(k=>['salt','iterations','hash'].includes(k))&&typeof x.salt==='string'&&x.salt.length>0&&x.salt.length<1000&&x.iterations===310000&&(x.hash===undefined||x.hash==='SHA-256')}
+export function validWrappedKey(x){return plainObject(x)&&Object.keys(x).length===2&&typeof x.iv==='string'&&x.iv.length>0&&x.iv.length<1000&&typeof x.ciphertext==='string'&&x.ciphertext.length>0&&x.ciphertext.length<10000}
+export function validKeyMaterial(x){return plainObject(x)&&validKdf(x.kdf)&&validWrappedKey(x.wrappedKey)}
+export function validEnvelope(x){return x&&TYPES.includes(x.type)&&typeof x.id==='string'&&/^[a-zA-Z0-9_-]{8,80}$/.test(x.id)&&typeof x.ciphertext==='string'&&x.ciphertext.length<2_000_000&&typeof x.iv==='string'&&typeof x.version==='number'&&!('password'in x)&&!('username'in x)&&!('body'in x)}export function validatePlain(type,x){const keys={account:['platform','loginUrl','username','password','notes','tags'],website:['name','url','description','tags'],note:['title','body','tags']}[type];if(!keys||!x||Object.keys(x).some(k=>!keys.includes(k)))return false;return keys.every(k=>k in x)&&Array.isArray(x.tags)}

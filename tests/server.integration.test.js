@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const origin = 'http://127.0.0.1:19876';
+let child;
+async function start(db) {
+  child = spawn(process.execPath, ['apps/server/server.mjs'], { cwd: new URL('..', import.meta.url), env: {...process.env, PORT:'19876', HOST:'127.0.0.1', DB_PATH:db, COOKIE_SECURE:'false'}, stdio:['ignore','pipe','pipe'] });
+  let errors=''; child.stderr.on('data',c=>errors+=c);
+  for(let i=0;i<80;i++){try{const r=await fetch(origin+'/api/health');if(r.ok)return;}catch{} await new Promise(r=>setTimeout(r,25));}
+  throw new Error('server start failed '+errors);
+}
+async function stop(){if(!child)return; child.kill('SIGTERM'); await new Promise(r=>child.once('exit',r)); child=null;}
+async function api(path,{method='GET',body,cookie,csrf,requestOrigin=origin}={}){const headers={origin:requestOrigin};if(body!==undefined)headers['content-type']='application/json';if(cookie)headers.cookie=cookie;if(csrf)headers['x-csrf-token']=csrf;return fetch(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});}
+function session(r){return r.headers.get('set-cookie').split(';',1)[0]}
+const kdf={salt:'c2FsdHNhbHRzYWx0c2FsdA==',iterations:310000,hash:'SHA-256'};
+const wrappedKey={iv:'dGVzdGl2MTIzNDU2',ciphertext:'ZW5jcnlwdGVk'};
+
+test('SQLite auth、CSRF、密文 CRUD、备份及两次重启持久化',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'pv2-')),db=join(dir,'vault.sqlite');
+ try{
+  await start(db);
+  let r=await api('/api/register',{method:'POST',body:{username:'alice',password:'correct horse battery',kdf,wrappedKey}});assert.equal(r.status,201);
+  r=await api('/api/login',{method:'POST',body:{username:'alice',password:'correct horse battery'}});assert.equal(r.status,200);let login=await r.json(),cookie=session(r);assert.match(r.headers.get('set-cookie'),/HttpOnly.*SameSite=Strict/);
+  const envelope={id:'entry_123',type:'note',version:1,iv:'aXY=',ciphertext:'Y2lwaGVy'};
+  assert.equal((await api('/api/entries/entry_123',{method:'PUT',cookie,body:envelope})).status,403);
+  assert.equal((await api('/api/entries/entry_123',{method:'PUT',cookie,csrf:login.csrf,body:envelope,requestOrigin:'https://evil.test'})).status,403);
+  assert.equal((await api('/api/entries/entry_123',{method:'PUT',cookie,csrf:login.csrf,body:envelope})).status,200);
+  let backup=await (await api('/api/backup',{cookie})).json();assert.deepEqual(backup.envelopes,[envelope]);assert.deepEqual(backup.wrappedKey,wrappedKey);assert.equal(JSON.stringify(backup).includes('password'),false);
+  await stop(); await start(db); // restart #1: session and data both persist
+  r=await api('/api/entries',{cookie});assert.equal(r.status,200);assert.deepEqual((await r.json()).items,[envelope]);
+  r=await api('/api/change-password',{method:'POST',cookie,csrf:login.csrf,body:{currentPassword:'wrong password here',newPassword:'another correct horse',kdf,wrappedKey}});assert.equal(r.status,401);assert.deepEqual(await r.json(),{error:'invalid_current_password'});
+  r=await api('/api/change-password',{method:'POST',cookie,csrf:login.csrf,body:{currentPassword:'correct horse battery',newPassword:'short',kdf,wrappedKey}});assert.equal(r.status,400);assert.deepEqual(await r.json(),{error:'invalid_new_password'});
+  r=await api('/api/change-password',{method:'POST',cookie,csrf:login.csrf,body:{currentPassword:'correct horse battery',newPassword:'another correct horse',kdf:{salt:'bad',iterations:1},wrappedKey}});assert.equal(r.status,400);assert.deepEqual(await r.json(),{error:'invalid_key_material'});
+  assert.equal((await api('/api/change-password',{method:'POST',cookie,csrf:login.csrf,body:{currentPassword:'correct horse battery',newPassword:'another correct horse',kdf,wrappedKey}})).status,200);
+  assert.equal((await api('/api/entries',{cookie})).status,401); // password change clears all sessions
+  r=await api('/api/login',{method:'POST',body:{username:'alice',password:'another correct horse'}});assert.equal(r.status,200);login=await r.json();cookie=session(r);
+  assert.equal((await api('/api/backup/import',{method:'POST',cookie,csrf:login.csrf,body:{kdf,wrappedKey,entries:[{...envelope,id:'entry_456'}]}})).status,200);
+  await stop(); await start(db); // restart #2
+  r=await api('/api/login',{method:'POST',body:{username:'alice',password:'another correct horse'}});login=await r.json();cookie=session(r);
+  assert.deepEqual((await (await api('/api/entries',{cookie})).json()).items.map(x=>x.id),['entry_456']);
+  assert.equal((await api('/api/logout',{method:'POST',cookie,csrf:login.csrf})).status,200);
+  assert.equal((await api('/api/entries',{cookie})).status,401);
+  for(let i=0;i<11;i++)r=await api('/api/login',{method:'POST',body:{username:'alice',password:'bad bad bad bad'}});
+  assert.equal(r.status,429);
+ }finally{await stop();await rm(dir,{recursive:true,force:true});}
+});

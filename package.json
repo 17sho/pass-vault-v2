@@ -1,0 +1,34 @@
+{
+  "name": "pass-vault-v2",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zero-knowledge password vault with shared frontend and Cloudflare D1 or Linux SQLite backends",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/17sho/pass-vault-v2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/17sho/pass-vault-v2/issues"
+  },
+  "homepage": "https://github.com/17sho/pass-vault-v2#readme",
+  "type": "module",
+  "scripts": {
+    "pretest": "node scripts/build.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.js",
+    "lint": "node scripts/check.mjs",
+    "typecheck": "tsc --noEmit -p apps/worker/tsconfig.json",
+    "build": "node scripts/build.mjs",
+    "start": "node apps/server/server.mjs",
+    "package:release": "node scripts/package-release.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "playwright": "^1.61.1",
+    "typescript": "latest",
+    "wrangler": "latest"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,173 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { chromium, webkit, devices } from 'playwright';
+import { spawn } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
+
+const port = 4317;
+const base = `http://localhost:${port}`;
+let server, browser;
+async function stopFixture() {
+  await browser?.close(); browser = undefined;
+  if (server && server.exitCode === null) {
+    server.kill('SIGTERM');
+    await new Promise(resolve => server.once('exit', resolve));
+  }
+  server = undefined;
+}
+test.beforeEach(async () => {
+  await mkdir('artifacts', { recursive: true });
+  server = spawn(process.execPath, ['apps/server/server.mjs'], { env: { ...process.env, PORT: String(port), DB_PATH: `/tmp/pass-vault-ui-${process.pid}.sqlite`, COOKIE_SECURE: 'false' } });
+  await new Promise((resolve, reject) => { const deadline=Date.now()+5000; const ping=async()=>{try{const r=await fetch(base);if(r.ok)return resolve()}catch{} if(Date.now()>deadline)return reject(Error('server timeout'));setTimeout(ping,80)};ping() });
+  browser = await chromium.launch({headless:true});
+});
+test.afterEach(stopFixture);
+
+async function register(page) {
+  await page.goto(base);
+  await page.getByRole('button',{name:'创建新库'}).click();
+  await page.getByLabel('用户名').fill('tester'+Date.now());
+  await page.getByLabel('主密码',{exact:true}).fill('correct horse battery staple');
+  await page.getByRole('button',{name:'创建并进入'}).click();
+  await page.waitForTimeout(1500);
+  if (!(await page.locator('#vault').isVisible())) throw Error(`auth failed: ${await page.locator('#auth-error').textContent()} url=${page.url()}`);
+}
+async function create(page,type, values){
+  await page.getByRole('button',{name:'+ 新建'}).click();
+  await page.locator('#picker').getByRole('button',{name:type,exact:true}).click();
+  const editor = page.locator('#editor');
+  for(const [label,value] of Object.entries(values)) await editor.getByLabel(label,{exact:true}).fill(value);
+  await editor.getByRole('button',{name:'保存'}).click();
+}
+
+test('旧版 iPhone Safari 无 crypto.randomUUID 仍可保存笔记', async()=>{
+ const safari=await webkit.launch({headless:true});
+ const context=await safari.newContext({...devices['iPhone 13']});
+ await context.addInitScript(()=>{Object.defineProperty(Crypto.prototype,'randomUUID',{value:undefined,configurable:true})});
+ const page=await context.newPage(),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ try {
+  await page.goto(base);await page.getByRole('button',{name:'创建新库'}).click();
+  await page.getByLabel('用户名').fill('iphone'+Date.now());await page.getByLabel('主密码',{exact:true}).fill('correct horse battery staple');
+  await page.getByRole('button',{name:'创建并进入'}).click();await page.locator('#vault').waitFor({state:'visible'});
+  await create(page,'笔记',{'标题':'测试','正文':'测试','标签（逗号分隔）':'测试'});
+  await page.locator('.item-card',{hasText:'测试'}).click();
+  assert.match(await page.locator('#detail').textContent(),/标题测试.*正文测试.*标签测试/s);
+  assert.deepEqual(errors,[]);
+ } finally {await context.close();await safari.close()}
+});
+
+test('三类字段隔离、当前分类搜索、编辑锁类型、危险区删除与备份', async()=>{
+ const page=await browser.newPage({viewport:{width:1440,height:900}}), errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});page.on('pageerror',e=>errors.push(e.message));
+ await register(page);
+ await page.getByRole('button',{name:'+ 新建'}).click();
+ await page.locator('#picker').getByRole('button',{name:'网站',exact:true}).click();
+ const editor=page.locator('#editor');
+ assert.deepEqual(await page.locator('#fields label').allTextContents(),['名称','网址','说明','标签（逗号分隔）']);
+ assert.equal(await editor.getByLabel('账号',{exact:true}).count(),0); assert.equal(await editor.getByLabel('密码',{exact:true}).count(),0);
+ await page.getByLabel('名称').fill('Example');await page.getByLabel('网址',{exact:true}).fill('https://example.com');await page.getByRole('button',{name:'保存'}).click();
+ await create(page,'笔记',{'标题':'购物清单','正文':'牛奶','标签（逗号分隔）':'生活'});
+ await page.locator('nav').getByRole('button',{name:'网站',exact:true}).click();await page.getByPlaceholder('搜索当前分类').fill('牛奶');assert.equal(await page.locator('.item-card').count(),0);
+ await page.getByPlaceholder('搜索当前分类').fill('example');assert.equal(await page.locator('.item-card').count(),1);await page.locator('.item-card').click();await page.getByRole('button',{name:'编辑'}).click();
+ assert.equal(await page.locator('#editor button[data-type], #editor select[name="type"], #editor input[name="type"]').count(),0);
+ assert.equal(await page.getByRole('button',{name:'删除此条目'}).count(),1);
+ await page.getByRole('button',{name:'取消'}).click();
+ await page.locator('#editor').waitFor({state:'hidden'});assert.equal(await page.getByRole('button',{name:'删除此条目'}).isVisible(),false);
+ await page.getByRole('button',{name:'更多',exact:true}).click();
+ assert.equal(await page.getByRole('menuitem').count(),4);
+ await page.screenshot({path:'artifacts/desktop-1440.png',fullPage:true});assert.deepEqual(errors,[]);await page.close();
+});
+
+test('320/768/1440 响应式、手机全屏详情、键盘可达',async()=>{
+ for(const width of [320,768,1440]){const page=await browser.newPage({viewport:{width,height:800}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});await register(page);await create(page,'账号',{'平台':'GitHub','登录网址':'https://github.com','账号':'alice','密码':'secret','备注':'工作','标签（逗号分隔）':'开发'});
+ const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);assert.equal(overflow,false);
+ const layout=await page.locator('.item-card').evaluate(card=>{const content=card.querySelector('.item-content'),actions=card.querySelector('.item-actions'),more=card.querySelector('.item-more'),cs=getComputedStyle(card),ccs=getComputedStyle(content),acs=getComputedStyle(actions),cr=card.getBoundingClientRect(),rr=more.getBoundingClientRect();return{direction:cs.flexDirection,width:cr.width,parentWidth:card.parentElement.clientWidth-parseFloat(getComputedStyle(card.parentElement).paddingLeft)-parseFloat(getComputedStyle(card.parentElement).paddingRight),contentDirection:ccs.flexDirection,contentAlign:ccs.alignItems,contentFlex:ccs.flexGrow,contentMinWidth:ccs.minWidth,actionsWidth:acs.width,moreRight:rr.right,cardRight:cr.right}});
+ assert.equal(layout.direction,'row');assert.ok(Math.abs(layout.width-layout.parentWidth)<1);assert.equal(layout.contentDirection,'column');assert.equal(layout.contentAlign,'flex-start');assert.equal(layout.contentFlex,'1');assert.equal(layout.contentMinWidth,'0px');assert.ok(parseFloat(layout.actionsWidth)>=40&&parseFloat(layout.actionsWidth)<=44);assert.ok(layout.moreRight<=layout.cardRight&&layout.cardRight-layout.moreRight<16);
+ await page.getByRole('button',{name:'+ 新建'}).focus();await page.keyboard.press('Tab');assert.notEqual(await page.evaluate(()=>document.activeElement?.tagName),'BODY');
+ await page.locator('.item-card').click();const pos=await page.locator('#detail').evaluate(e=>getComputedStyle(e).position);assert.equal(width<=650?pos:'static',width<=650?'fixed':'static');
+ await page.screenshot({path:`artifacts/layout-${width}.png`,fullPage:true});assert.deepEqual(errors,[]);await page.close();}
+});
+
+test('列表更多操作不冒泡，可取消并支持外部点击与 Escape 关闭',async()=>{
+ const page=await browser.newPage({viewport:{width:320,height:800}});await register(page);await create(page,'笔记',{'标题':'待删除笔记','正文':'正文','标签（逗号分隔）':''});
+ const card=page.locator('.item-card',{hasText:'待删除笔记'}),more=card.getByRole('button',{name:'待删除笔记的更多操作'});
+ await more.click();assert.equal(await page.locator('#detail').getByText('待删除笔记').count(),0);assert.equal(await page.getByRole('menuitem',{name:'编辑'}).isVisible(),true);
+ await page.keyboard.press('Escape');assert.equal(await page.getByRole('menuitem',{name:'编辑'}).isVisible(),false);
+ await more.click();await page.locator('.collection').click({position:{x:2,y:2}});assert.equal(await page.getByRole('menuitem',{name:'编辑'}).isVisible(),false);
+ await more.click();await page.getByRole('menuitem',{name:'删除'}).click();assert.match(await page.getByRole('dialog',{name:'确认删除'}).textContent(),/待删除笔记/);
+ await page.getByRole('button',{name:'取消删除'}).click();assert.equal(await card.count(),1);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false);await page.close();
+});
+
+test('列表快速删除成功并显示进行中反馈',async()=>{
+ const page=await browser.newPage();await register(page);await create(page,'笔记',{'标题':'快速删除成功','正文':'正文','标签（逗号分隔）':''});
+ await page.getByRole('button',{name:'快速删除成功的更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'删除'}).click();
+ await page.route('**/api/entries/*',async route=>{if(route.request().method()==='DELETE'){await new Promise(r=>setTimeout(r,150));await route.continue()}else await route.continue()});
+ const confirm=page.getByRole('button',{name:'确认删除'});await confirm.click();const deleting=page.getByRole('button',{name:'删除中…'});await deleting.waitFor();assert.equal(await deleting.isDisabled(),true);
+ await page.getByText('已删除',{exact:true}).waitFor();assert.equal(await page.locator('.item-card',{hasText:'快速删除成功'}).count(),0);await page.close();
+});
+
+test('详情可直接删除且失败显示中文反馈并保留条目',async()=>{
+ const page=await browser.newPage();await register(page);await create(page,'笔记',{'标题':'删除失败条目','正文':'正文','标签（逗号分隔）':''});await page.locator('.item-card',{hasText:'删除失败条目'}).click();
+ await page.route('**/api/entries/*',route=>route.request().method()==='DELETE'?route.fulfill({status:500,contentType:'application/json',body:'{"error":"internal_error"}'}):route.continue());
+ await page.locator('#detail').getByRole('button',{name:'删除'}).click();await page.getByRole('button',{name:'确认删除'}).click();await page.locator('#delete-error').getByText(/删除失败：服务器暂时异常，请稍后再试/).waitFor();
+ assert.equal(await page.getByRole('dialog',{name:'确认删除'}).isVisible(),true);assert.equal(await page.locator('.item-card',{hasText:'删除失败条目'}).count(),1);await page.close();
+});
+
+test('改密弹窗显隐状态复位、统一焦点环与响应式截图',async()=>{
+ const page=await browser.newPage({viewport:{width:320,height:800}});await register(page);
+ const open=async()=>{await page.getByRole('button',{name:'更多',exact:true}).click();await page.getByRole('menuitem',{name:'修改密码'}).click()};
+ await open();const dialog=page.getByRole('dialog',{name:'修改主密码'}),inputs=dialog.locator('input[type="password"]'),toggles=dialog.locator('[data-password-toggle]');assert.equal(await inputs.count(),3);
+ await toggles.first().click();assert.equal(await dialog.locator('input[name="current"]').getAttribute('type'),'text');assert.equal(await toggles.first().getAttribute('aria-pressed'),'true');
+ await dialog.getByRole('button',{name:'取消'}).click();await open();assert.deepEqual(await dialog.locator('input').evaluateAll(xs=>xs.map(x=>x.type)),['password','password','password']);assert.deepEqual(await toggles.allTextContents(),['显示','显示','显示']);assert.deepEqual(await toggles.evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-pressed'))),['false','false','false']);
+ const emptyError=await dialog.locator('#current-error').evaluate(e=>({height:e.getBoundingClientRect().height,display:getComputedStyle(e).display}));assert.equal(emptyError.height,0);assert.equal(emptyError.display,'none');
+ const group=dialog.locator('.password-input').first(),input=dialog.locator('input[name="current"]');const styles=await input.evaluate(e=>({border:getComputedStyle(e).borderTopWidth,outline:getComputedStyle(e).outlineStyle}));assert.equal(styles.border,'0px');await input.focus();const focused=await group.evaluate(e=>({outline:getComputedStyle(e).outlineStyle,outlineWidth:getComputedStyle(e).outlineWidth}));assert.equal(focused.outline,'solid');assert.notEqual(focused.outlineWidth,'0px');
+ await dialog.getByRole('button',{name:'确认修改'}).click();const error=dialog.locator('#current-error');assert.equal(await error.isVisible(),true);assert.ok((await error.boundingBox()).height<30);
+ for(const width of [320,768,1440]){await page.setViewportSize({width,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false);await page.screenshot({path:`artifacts/change-password-${width}.png`,fullPage:true})}
+ await page.keyboard.press('Escape');await open();assert.deepEqual(await dialog.locator('input').evaluateAll(xs=>xs.map(x=>x.type)),['password','password','password']);await page.close();
+});
+
+test('详情字段快捷操作：复制、密码显隐复位、安全网址与 fallback',async()=>{
+ const page=await browser.newPage({viewport:{width:320,height:800}});await page.addInitScript(()=>{
+  window.__copied=[];window.__opened=[];
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>window.__copied.push(value),readText:async()=>window.__copied.at(-1)||''}});
+  window.open=(url,target,features)=>{window.__opened.push({url,target,features});return null};
+ });
+ await register(page);await create(page,'账号',{'平台':'Account A','登录网址':'https://account.example/login','账号':'alice','密码':'secret-value','备注':'工作','标签（逗号分隔）':''});
+ await page.locator('.item-card',{hasText:'Account A'}).click();const detail=page.locator('#detail');
+ assert.match(await detail.locator('[data-detail-field="password"] .field-value').textContent(),/^•+$/);assert.doesNotMatch(await detail.textContent(),/secret-value/);
+ await detail.getByRole('button',{name:'复制账号'}).click();await page.getByText('账号已复制',{exact:true}).waitFor();
+ await detail.getByRole('button',{name:'复制密码'}).click();await page.getByText('密码已复制',{exact:true}).waitFor();assert.match(await detail.textContent(),/60 秒后/);
+ assert.deepEqual(await page.evaluate(()=>window.__copied.slice(0,2)),['alice','secret-value']);
+ await detail.getByRole('button',{name:'显示密码'}).click();assert.equal(await detail.locator('[data-detail-field="password"] .field-value').textContent(),'secret-value');
+ await detail.getByRole('button',{name:'编辑'}).click();await page.locator('#editor').getByLabel('登录网址',{exact:true}).fill('account.example/login');await page.locator('#editor').getByRole('button',{name:'保存'}).click();
+ await detail.getByRole('button',{name:'打开登录网址'}).click();assert.deepEqual(await page.evaluate(()=>window.__opened[0]),{url:'https://account.example/login',target:'_blank',features:'noopener,noreferrer'});
+ await detail.getByRole('button',{name:'复制登录网址'}).click();await page.getByText('网址已复制',{exact:true}).waitFor();
+ await detail.getByRole('button',{name:'← 返回'}).click();await detail.waitFor({state:'hidden'});await page.locator('nav').getByRole('button',{name:'网站',exact:true}).click();assert.doesNotMatch(await page.locator('#detail').textContent(),/secret-value/);
+ await create(page,'网站',{'名称':'Safe Site','网址':'https://example.com','说明':'说明','标签（逗号分隔）':''});await page.locator('.item-card',{hasText:'Safe Site'}).click();
+ await detail.getByRole('button',{name:'打开网址'}).click();await detail.getByRole('button',{name:'复制网址'}).click();assert.equal((await page.evaluate(()=>window.__opened.at(-1).url)),'https://example.com/');
+ await detail.getByRole('button',{name:'编辑'}).click();await page.locator('#editor').getByLabel('网址',{exact:true}).fill('javascript:alert(1)');await page.locator('#editor').getByRole('button',{name:'保存'}).click();await detail.getByRole('button',{name:'打开网址'}).click();await page.getByText('仅支持打开 http/https 网址',{exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.__opened.length)),2);
+ await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('denied')}}});document.execCommand=command=>{if(command==='copy'){window.__fallbackValue=document.activeElement.value;return true}return false}});
+ await detail.getByRole('button',{name:'复制网址'}).click();await page.getByText('网址已复制',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.__fallbackValue),'javascript:alert(1)');
+ for(const width of [320,768,1440]){await page.setViewportSize({width,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false)}await page.close();
+});
+
+test('改密弹窗字段校验阻止请求，服务端错误就地显示，成功后回登录',async()=>{
+ const page=await browser.newPage({viewport:{width:390,height:844}}),runtimeErrors=[];page.on('pageerror',e=>runtimeErrors.push(e.message));page.on('console',m=>{if(m.type()==='error')runtimeErrors.push(m.text())});await register(page);await page.getByRole('button',{name:'更多',exact:true}).click();await page.getByRole('menuitem',{name:'修改密码'}).click();
+ const dialog=page.getByRole('dialog',{name:'修改主密码'});assert.match(await dialog.textContent(),/至少 12 个字符/);assert.equal(await dialog.locator('input[name="confirm"]').count(),1);
+ let requests=0;page.on('request',r=>{if(r.url().endsWith('/api/change-password'))requests++});
+ await dialog.locator('input[name="current"]').fill('correct horse battery staple');await dialog.locator('input[name="next"]').fill('another secure password');await dialog.locator('input[name="confirm"]').fill('different secure password');await dialog.getByRole('button',{name:'确认修改'}).click();
+ assert.equal(requests,0);assert.match(await dialog.textContent(),/两次输入的新密码不一致/);
+ await dialog.locator('input[name="confirm"]').fill('another secure password');await dialog.locator('input[name="current"]').fill('another secure password');await dialog.getByRole('button',{name:'确认修改'}).click();assert.equal(requests,0);assert.match(await dialog.textContent(),/新密码不能与当前密码相同/);
+ await dialog.locator('input[name="current"]').fill('wrong password here');await dialog.getByRole('button',{name:'确认修改'}).click();await dialog.getByText('当前密码不正确').waitFor();assert.equal(await dialog.isVisible(),true);runtimeErrors.length=0;
+ await dialog.locator('input[name="current"]').fill('correct horse battery staple');const successResponse=page.waitForResponse(r=>r.url().endsWith('/api/change-password'));await dialog.getByRole('button',{name:'确认修改'}).click();const changed=await successResponse;assert.equal(changed.status(),200,await changed.text());await page.waitForTimeout(500);const uiState=await page.evaluate(()=>({authHidden:document.querySelector('#auth').hidden,vaultHidden:document.querySelector('#vault').hidden,dialogOpen:document.querySelector('#password-dialog').open,passwordError:document.querySelector('#password-error').textContent,currentError:document.querySelector('#current-error').textContent}));assert.deepEqual(runtimeErrors,[],JSON.stringify(uiState));assert.equal(uiState.authHidden,false,JSON.stringify(uiState));await page.locator('#auth').waitFor({state:'visible'});assert.equal(await dialog.isVisible(),false);assert.match(await page.locator('#auth-error').textContent(),/主密码已修改，请使用新密码重新登录/);
+ await page.close();
+});
+
+test('统一 motion：dialog 退场、reduced motion 与视口无溢出',async()=>{
+ const page=await browser.newPage({viewport:{width:320,height:800}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});await register(page);
+ const tokens=await page.evaluate(()=>{const s=getComputedStyle(document.documentElement);return [s.getPropertyValue('--motion-fast').trim(),s.getPropertyValue('--motion-base').trim(),s.getPropertyValue('--motion-slow').trim()]});assert.deepEqual(tokens,['120ms','180ms','240ms']);
+ await page.getByRole('button',{name:'+ 新建'}).click();const picker=page.locator('#picker');assert.equal(await picker.getAttribute('data-motion'),'open');await picker.getByRole('button',{name:'关闭'}).click();assert.equal(await picker.getAttribute('data-motion'),'closing');await picker.waitFor({state:'hidden'});assert.equal(await picker.evaluate(e=>e.open),false);
+ await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('button',{name:'+ 新建'}).click();await picker.getByRole('button',{name:'关闭'}).click();assert.equal(await picker.evaluate(e=>e.open),false);
+ for(const width of [320,768,1440]){await page.setViewportSize({width,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false)}assert.deepEqual(errors,[]);await page.close();
+});

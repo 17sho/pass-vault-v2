@@ -1,0 +1,23 @@
+[Unit]
+Description=Pass Vault V2
+After=network.target
+
+# Template: replace @APP_USER@, @APP_DIR@, and @DATA_DIR@ before installing.
+[Service]
+Type=simple
+User=@APP_USER@
+Group=@APP_USER@
+WorkingDirectory=@APP_DIR@
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+Environment=DB_PATH=@DATA_DIR@/pass-vault.sqlite
+ExecStart=/usr/bin/env node apps/server/server.mjs
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=@DATA_DIR@
+
+[Install]
+WantedBy=multi-user.target

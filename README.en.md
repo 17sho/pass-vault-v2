@@ -1,0 +1,103 @@
+# Pass Vault V2
+
+[中文](README.md) · [English](README.en.md)
+
+A mobile-first, self-hosted, zero-knowledge password vault. The shared frontend runs with either a **Cloudflare Workers + Static Assets + D1** backend or a **Linux Node.js + SQLite** backend.
+
+> If this project helps you, a Star would mean a lot ❤️. Issues and improvements are welcome too.
+
+## Features
+
+- Account, website, and secure-note records with tags, search, editing, and deletion
+- Responsive desktop/mobile UI with no native client required
+- Encrypted backup import/export and master-password changes
+- Authentication, sessions, CSRF protection, origin checks, and rate limiting
+- One encrypted API contract with two independent deployment options
+
+## Zero-knowledge architecture
+
+```text
+Master password (browser only)
+  └─ PBKDF2-SHA-256 (random salt, 310,000 iterations) → KEK
+       └─ unwraps a random AES-256-GCM vault key
+            └─ each item encrypted separately in browser → ciphertext envelope → backend
+```
+
+The server stores only authentication material, the wrapped vault key, and encrypted item envelopes. It should never receive the master password, vault key, or item plaintext. Zero knowledge does not replace a trusted endpoint, HTTPS, prompt updates, and tested backups; a malicious or compromised frontend can still steal unlocked data.
+
+## Cloudflare vs. Linux
+
+| | Cloudflare edition | Linux edition |
+|---|---|---|
+| Runtime | Workers + Static Assets | Node.js 22+ |
+| Database | D1 | Local SQLite |
+| Operations | Wrangler / Cloudflare Dashboard | systemd + Caddy/Nginx |
+| Best for | Serverless edge deployment | Full host and data-file control |
+| Data sync | **No automatic sync with Linux** | **No automatic sync with Cloudflare** |
+
+Accounts and data are independent. To migrate, export an **encrypted backup** from the source, create and unlock an account at the destination, then import it. Keep the source data until verification succeeds.
+
+## Screenshots
+
+> Screenshot placeholder: before release, sanitized desktop and mobile screenshots made with empty test data may be added under `docs/images/`. They must contain no real accounts, domains, passwords, cookies, or other sensitive information.
+
+## Quick start (local Linux edition)
+
+Prerequisites: Node.js 22+, npm, and a modern browser with WebCrypto.
+
+```bash
+git clone https://github.com/17sho/pass-vault-v2.git
+cd pass-vault-v2
+npm ci
+npm test
+npm run lint && npm run typecheck && npm run build
+COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
+```
+
+Open `http://127.0.0.1:3000`. `COOKIE_SECURE=false` is **only for local HTTP development**. Production must use HTTPS and secure cookies.
+
+Full instructions: [中文部署指南](docs/deployment.zh-CN.md) · **[English deployment guide](docs/deployment.en.md)**
+
+## Repository layout
+
+- `public/` — shared frontend and browser WebCrypto
+- `shared/` — encrypted API contract shared by both backends
+- `apps/worker/` — Cloudflare Worker, D1 migrations, and Wrangler config
+- `apps/server/` — Linux Node.js + SQLite backend
+- `scripts/` — build, validation, and migration tools
+- `deploy/` — systemd example
+- `tests/` — contract, backend, and UI tests
+- `docs/` — API and deployment documentation
+
+## Security warnings
+
+- This is security-sensitive software; review it and assess your threat model before deployment.
+- A forgotten master password cannot be recovered without a usable backup.
+- Use production instances only over HTTPS; protect the host, Cloudflare account, and backups.
+- Never commit databases, backups, `.env`, real domains, account IDs, or secrets.
+- Verify backup provenance; keep multiple encrypted copies and test restoration.
+- Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md), not in public issues.
+
+## FAQ
+
+**Do the Cloudflare and Linux editions synchronize?**  No. They are independent backends sharing a frontend and contract.
+
+**Can the server read item plaintext?**  Not by design; encryption occurs in the browser. A compromised frontend or endpoint can still read data while unlocked.
+
+**Can my master password be recovered?**  No. Store it safely and maintain tested encrypted backups.
+
+**How do I migrate between editions?**  Export an encrypted backup at the source, then register/sign in, unlock, and import at the destination. Accounts are not copied automatically.
+
+**Should I expose `npm start` directly in production?**  No. Use a dedicated user, systemd, loopback binding, and an HTTPS Caddy/Nginx reverse proxy.
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Before submitting, run:
+
+```bash
+npm test && npm run lint && npm run typecheck && npm run build
+```
+
+## License
+
+This project is open source under the [MIT License](LICENSE). You may use, modify, and redistribute it while retaining the license and copyright notice.
