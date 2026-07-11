@@ -4,6 +4,12 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-07-11
+
+### Fixed / 修复
+- 修复手机端连续切换顶部分类菜单时，旧详情短暂残留、列表卡片透明闪烁及附件筛选器显隐不同步的问题。
+- Fixed mobile top-category navigation flicker: stale detail content is removed in the same frame, list cards remain visible during rapid switches, and the attachment filter visibility stays synchronized.
+
 ## [1.1.3] - 2026-07-11
 
 ### Fixed
@@ -43,7 +49,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/17sho/pass-vault-v2/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/17sho/pass-vault-v2/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/17sho/pass-vault-v2/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/17sho/pass-vault-v2/compare/v1.1.0...v1.1.1
