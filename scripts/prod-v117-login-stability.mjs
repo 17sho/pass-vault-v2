@@ -13,8 +13,10 @@ async function createEntry(page, i) {
   await page.getByRole('button', { name: '+ 新建' }).click();
   await page.locator('#picker').getByRole('button', { name: '账号', exact: true }).click();
   const editor = page.locator('#editor');
-  const values = { 平台: `v117-final-${suffix}-${i}`, 登录网址: `https://v117-${i}.example`, 账号: `user-${i}`, 密码: `fixture-${i}`, 备注: 'v1.1.7 final stability probe', '标签（逗号分隔）': 'e2e' };
+  const values = { 平台: `v117-final-${suffix}-${i}`, 登录网址: `https://v117-${i}.example`, 备注: 'v1.1.7 final stability probe', '标签（逗号分隔）': 'e2e' };
   for (const [label, value] of Object.entries(values)) await editor.getByLabel(label, { exact: true }).fill(value);
+  await editor.locator('input[name=credentialUsername]').fill(`user-${i}`);
+  await editor.locator('input[name=credentialPassword]').fill(`fixture-${i}`);
   await editor.getByRole('button', { name: '保存' }).click();
   await editor.waitFor({ state: 'hidden' });
   evidence.seededEntries++;

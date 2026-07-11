@@ -35,8 +35,13 @@ async function register(page) {
 async function create(page,type, values){
   await page.getByRole('button',{name:'+ 新建'}).click();
   await page.locator('#picker').getByRole('button',{name:type,exact:true}).click();
-  const editor = page.locator('#editor');
-  for(const [label,value] of Object.entries(values)) await editor.getByLabel(label,{exact:true}).fill(value);
+  const editor = page.locator('#editor'), fields={...values};
+  if(type==='账号'){
+    await editor.locator('input[name=credentialUsername]').fill(fields['账号']??'');
+    await editor.locator('input[name=credentialPassword]').fill(fields['密码']??'');
+    delete fields['账号']; delete fields['密码'];
+  }
+  for(const [label,value] of Object.entries(fields)) await editor.getByLabel(label,{exact:true}).fill(value);
   await editor.getByRole('button',{name:'保存'}).click();
 }
 
@@ -164,11 +169,11 @@ test('详情字段快捷操作：复制、密码显隐复位、安全网址与 f
  });
  await register(page);await create(page,'账号',{'平台':'Account A','登录网址':'https://account.example/login','账号':'alice','密码':'secret-value','备注':'工作','标签（逗号分隔）':''});
  await page.locator('.item-card',{hasText:'Account A'}).click();const detail=page.locator('#detail');
- assert.match(await detail.locator('[data-detail-field="password"] .field-value').textContent(),/^•+$/);assert.doesNotMatch(await detail.textContent(),/secret-value/);
- await detail.getByRole('button',{name:'复制账号'}).click();await page.getByText('账号已复制',{exact:true}).waitFor();
- await detail.getByRole('button',{name:'复制密码'}).click();await page.getByText('密码已复制',{exact:true}).waitFor();assert.match(await detail.textContent(),/60 秒后/);
+ assert.match(await detail.locator('.credential-detail').nth(1).locator('.field-value').textContent(),/^•+$/);assert.doesNotMatch(await detail.textContent(),/secret-value/);
+ await detail.getByRole('button',{name:'复制账号 1'}).click();await page.getByText('账号 1 已复制',{exact:true}).waitFor();
+ await detail.getByRole('button',{name:'复制密码 1'}).click();await page.getByText('密码 1 已复制',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>window.__copied.slice(0,2)),['alice','secret-value']);
- await detail.getByRole('button',{name:'显示密码'}).click();assert.equal(await detail.locator('[data-detail-field="password"] .field-value').textContent(),'secret-value');
+ await detail.getByRole('button',{name:'显示密码 1'}).click();assert.equal(await detail.locator('.credential-detail').nth(1).locator('.field-value').textContent(),'secret-value');
  await detail.getByRole('button',{name:'编辑'}).click();await page.locator('#editor').getByLabel('登录网址',{exact:true}).fill('account.example/login');await page.locator('#editor').getByRole('button',{name:'保存'}).click();
  await detail.getByRole('button',{name:'打开登录网址'}).click();assert.deepEqual(await page.evaluate(()=>window.__opened[0]),{url:'https://account.example/login',target:'_blank',features:'noopener,noreferrer'});
  await detail.getByRole('button',{name:'复制登录网址'}).click();await page.getByText('网址已复制',{exact:true}).waitFor();
