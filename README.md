@@ -56,14 +56,15 @@ COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
 
 打开 `http://127.0.0.1:3000`。这一段只用于开发者在电脑上快速预览，并不是服务器部署教程。`COOKIE_SECURE=false` **仅限本地 HTTP 开发**。
 
-## Linux 服务器生产部署
+## 部署指南
 
-服务器版应部署到 Ubuntu/Debian VPS：使用 Node.js 22+、服务器本机 SQLite、专用系统用户、systemd 常驻服务，并通过 Caddy 或 Nginx 提供公网域名和 HTTPS。不要把 Node 端口直接暴露到公网，也不要在生产环境设置 `COOKIE_SECURE=false`。
+两种部署方式完全独立，请选择对应文档：
 
-- **[中文 Linux 服务器完整部署步骤](docs/deployment.zh-CN.md#4-linux-服务器生产部署ubuntudebian--nodejs--sqlite)**
-- [下载 Linux 服务器版 Release](https://github.com/17sho/pass-vault-v2/releases/latest)
+- **Cloudflare 部署指南**：**[中文](docs/cloudflare-deployment.zh-CN.md)** · [English](docs/cloudflare-deployment.en.md) — Workers + Static Assets + D1，包含 Wrangler CLI 与 Dashboard。
+- **Linux 服务器部署指南**：**[中文](docs/server-deployment.zh-CN.md)** · [English](docs/server-deployment.en.md) — VPS/独立服务器 Node.js + SQLite、systemd、Caddy/Nginx、备份恢复。
+- [下载 v1.0.0 Release 包](https://github.com/17sho/pass-vault-v2/releases/tag/v1.0.0)
 
-完整说明：**[中文部署指南](docs/deployment.zh-CN.md)** · [English deployment guide](docs/deployment.en.md)
+旧的综合部署 URL 仍保留为[简短导航页](docs/deployment.zh-CN.md)，避免外部链接失效。
 
 ## 仓库结构
 

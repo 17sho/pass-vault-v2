@@ -56,14 +56,15 @@ COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
 
 Open `http://127.0.0.1:3000`. This section is only a quick developer preview, not the Linux production deployment guide. `COOKIE_SECURE=false` is **only for local HTTP development**.
 
-## Linux production server deployment
+## Deployment guides
 
-Deploy the server edition on an Ubuntu/Debian VPS with Node.js 22+, a SQLite file stored on that server, a dedicated system user, and a persistent systemd service. Put Caddy or Nginx in front for a public domain and HTTPS. Do not expose the Node port directly to the Internet or set `COOKIE_SECURE=false` in production.
+The deployment methods are independent. Choose the matching guide:
 
-- **[Complete Linux server deployment guide](docs/deployment.en.md#4-linux-production-server-ubuntudebian--nodejs--sqlite)**
-- [Download the Linux server release](https://github.com/17sho/pass-vault-v2/releases/latest)
+- **Cloudflare deployment guide**: [中文](docs/cloudflare-deployment.zh-CN.md) · **[English](docs/cloudflare-deployment.en.md)** — Workers + Static Assets + D1, including Wrangler CLI and Dashboard.
+- **Linux server deployment guide**: [中文](docs/server-deployment.zh-CN.md) · **[English](docs/server-deployment.en.md)** — VPS/dedicated-server Node.js + SQLite, systemd, Caddy/Nginx, backup and restore.
+- [Download the v1.0.0 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.0.0)
 
-Full instructions: [中文部署指南](docs/deployment.zh-CN.md) · **[English deployment guide](docs/deployment.en.md)**
+The legacy combined deployment URL remains as a [short navigation page](docs/deployment.en.md) to avoid breaking external links.
 
 ## Repository layout
 
