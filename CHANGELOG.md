@@ -4,6 +4,8 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-07-11
+
 ### Added / 新增
 - 新增完全在浏览器内运行的当前分类模糊搜索：优先精确与子串结果，支持大小写/空白/标点归一化、中文片段、英文拼写与相邻换位容错及连续字母匹配；仅搜索各资料类型和附件的可见元数据，不向服务器发送明文查询。
 - Added category-scoped fuzzy search that stays entirely in the browser, prioritizes exact/substring results, normalizes case/spacing/punctuation, and supports Chinese fragments, Latin typo/transposition tolerance, and subsequences while limiting matches to visible item/attachment metadata.

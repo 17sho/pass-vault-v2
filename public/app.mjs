@@ -12,6 +12,7 @@ function busy(button,on,label){if(!button)return;button.disabled=on;if(on){butto
 function api(path,options={}){return fetch(path,{...options,headers:{'content-type':'application/json',...(csrf?{'x-csrf-token':csrf}:{}),...options.headers}}).then(async r=>{let x={};if(r.status!==204){try{x=await r.json()}catch{throw Error('服务器响应格式无效，请稍后重试')}}if(!r.ok)throw Error(errorMessage(x.error));return x})}
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const motionWait=(ms=180)=>reducedMotion()?Promise.resolve():new Promise(resolve=>setTimeout(resolve,ms));
+$('#auth-form').addEventListener('animationend',event=>{if(event.animationName==='auth-in')$('#auth').classList.remove('auth-initial')},{once:true});
 function openDialog(dialog){dialog.dataset.motion='open';dialog.showModal()}
 async function closeDialog(dialog){if(!dialog?.open)return;dialog.dataset.motion='closing';await motionWait();dialog.close();delete dialog.dataset.motion}
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog(dialog)}));

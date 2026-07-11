@@ -1,6 +1,6 @@
 {
   "name": "pass-vault-v2",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "private": true,
   "description": "Zero-knowledge password vault with shared frontend and Cloudflare D1 or Linux SQLite backends",
   "license": "MIT",
@@ -15,7 +15,7 @@
   "type": "module",
   "scripts": {
     "pretest": "node scripts/build.mjs",
-    "test": "node --experimental-strip-types --test tests/*.test.js",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/*.test.js",
     "lint": "node scripts/check.mjs",
     "typecheck": "tsc --noEmit -p apps/worker/tsconfig.json",
     "build": "node scripts/build.mjs",
