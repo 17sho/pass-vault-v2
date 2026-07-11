@@ -39,6 +39,8 @@ The server stores only authentication material, the wrapped vault key, encrypted
 
 Accounts and data are independent. To migrate, export an **encrypted backup** from the source, create and unlock an account at the destination, then import it. Keep the source data until verification succeeds.
 
+The Cloudflare edition has monthly application-level quotas to reduce R2 overage risk. The Linux edition does not use R2, so those monthly quotas do not apply; total capacity is governed by server storage and administrator configuration. The two editions do not need identical resource policies.
+
 ## Screenshots
 
 > Screenshot placeholder: before release, sanitized desktop and mobile screenshots made with empty test data may be added under `docs/images/`. They must contain no real accounts, domains, passwords, cookies, or other sensitive information.

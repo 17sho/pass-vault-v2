@@ -4,6 +4,8 @@
 
 This guide is exclusively for a Linux VPS or dedicated server. Replace every `<...>` placeholder. Never commit domains, databases, backups, or secrets.
 
+> **Unlike the Cloudflare edition:** the Linux edition does not use R2 and does not apply the Cloudflare edition's 8 GiB / 800,000 Class A / 8,000,000 Class B monthly billing-protection quotas. It does not return the R2 `quota_exceeded` error. Total capacity is governed by server disk space, reverse-proxy settings, and administrator policy. The deployment targets may intentionally use different resource policies and do not synchronize automatically.
+
 ## 1. Requirements and architecture
 
 - Ubuntu 22.04+/Debian 12+ (adapt as needed for another systemd distribution) and root/sudo.
