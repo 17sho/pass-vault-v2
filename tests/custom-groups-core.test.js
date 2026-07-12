@@ -23,6 +23,7 @@ test('group registry normalizes trimmed names and enforces exact bounded schema'
  ]) assert.equal(normalizeGroupRegistry(bad),null);
  assert.deepEqual(GROUP_TYPES,['account','website','note','attachment']);
  assert.match(SETTINGS_ID,/^[A-Za-z0-9_-]{8,80}$/);
+ assert.deepEqual(normalizeGroupRegistry({...empty(),account:[{id:'group_123',name:'Work'},{id:'group_456',name:'work'}]}).account.map(x=>x.name),['Work','work']);
 });
 
 test('groupId is optional but strict in plaintext records and attachment metadata',()=>{
