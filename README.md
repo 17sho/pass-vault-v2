@@ -9,7 +9,8 @@
 ## 功能
 
 - 保存账号、网站与安全笔记，支持标签、当前分类内模糊搜索、编辑与删除；搜索支持中文片段与英文拼写容错，且解密后的查询和内容只在浏览器内匹配
-- 笔记图片与独立附件库：上传、筛选、预览/播放、下载、重命名和删除
+- 账号、网站、笔记与附件拥有相互独立的加密自定义分组；空分组可持久化，分组筛选可与模糊搜索组合
+- 笔记图片与独立附件库：上传、分类/分组筛选、预览/播放、下载、重命名、移动分组和删除
 - 响应式桌面/移动界面，无需原生客户端
 - 加密备份导入/导出与主密码修改
 - 完整认证、会话、CSRF、同源检查和限速
@@ -66,7 +67,7 @@ COOKIE_SECURE=false HOST=127.0.0.1 PORT=3000 DB_PATH=./data/dev.sqlite npm start
 
 - **Cloudflare 部署指南**：**[中文](docs/cloudflare-deployment.zh-CN.md)** · [English](docs/cloudflare-deployment.en.md) — Workers + Static Assets + D1 + R2，含 Wrangler CLI 与 Dashboard 两种方式。附件功能要求先启用 R2；本项目不宣称 Cloudflare 生产环境已部署。
 - **Linux 服务器部署指南**：**[中文](docs/server-deployment.zh-CN.md)** · [English](docs/server-deployment.en.md) — VPS/独立服务器 Node.js + SQLite、systemd、Caddy/Nginx、备份恢复。
-- [下载最新 v1.1.9 Release 包](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.9)
+- [下载最新 v1.1.11 Release 包](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.11)
 
 Cloudflare 版使用的 Workers、Static Assets、D1、R2 Standard、DNS/SSL 均有免费层；部署指南已列出 D1/R2 额度、项目 R2 保守硬限制、账户级共享风险、Billing/Usage 检查路径，以及避免 Web Analytics 自动注入破坏密码库 CSP 的设置方法。
 

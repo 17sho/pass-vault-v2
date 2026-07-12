@@ -4,6 +4,16 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-07-12
+
+### Added / 新增
+- 为账号、网站、笔记与附件新增相互独立的客户端加密自定义分组，支持空分组持久化、创建、重命名、计数、分配、筛选与删除回默认分组。
+- Added independent browser-encrypted custom groups for accounts, websites, notes, and attachments, with empty-group persistence, create, rename, counts, assignment, filtering, and delete-to-default behavior.
+
+### Security / 安全
+- 分组注册表仅以保留的 `settings` 密文 envelope 保存；分组名称和 `groupId` 只在浏览器加密前出现，附件元数据头同样保持加密。旧条目、旧备份及失效分组均安全回退到默认分组。
+- The group registry is stored only as a reserved encrypted `settings` envelope; group names and `groupId` exist only before browser-side encryption, including encrypted attachment metadata headers. Legacy records, old backups, and invalid groups safely fall back to the default group.
+
 ## [1.1.10] - 2026-07-12
 
 ### Fixed / 修复

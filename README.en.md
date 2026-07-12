@@ -9,7 +9,8 @@ A mobile-first, self-hosted, zero-knowledge password vault. The shared frontend 
 ## Features
 
 - Account, website, and secure-note records with tags, category-scoped fuzzy search, editing, and deletion; Chinese fragments and Latin typos are matched entirely in the browser
-- Note images and a standalone attachment library with filtering, preview/playback, download, rename, and deletion
+- Independent encrypted custom groups for accounts, websites, notes, and attachments, including empty-group persistence and combined group/fuzzy filtering
+- Note images and a standalone attachment library with category/group filtering, preview/playback, download, rename, group moves, and deletion
 - Responsive desktop/mobile UI with no native client required
 - Encrypted backup import/export and master-password changes
 - Authentication, sessions, CSRF protection, origin checks, and rate limiting
@@ -66,7 +67,7 @@ The deployment methods are independent. Choose the matching guide:
 
 - **Cloudflare deployment guide**: [中文](docs/cloudflare-deployment.zh-CN.md) · **[English](docs/cloudflare-deployment.en.md)** — Workers + Static Assets + D1 + R2, including Wrangler CLI and Dashboard. Attachments require R2 to be enabled first; this project does not claim a Cloudflare production deployment.
 - **Linux server deployment guide**: [中文](docs/server-deployment.zh-CN.md) · **[English](docs/server-deployment.en.md)** — VPS/dedicated-server Node.js + SQLite, systemd, Caddy/Nginx, backup and restore.
-- [Download the latest v1.1.9 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.9)
+- [Download the latest v1.1.11 release packages](https://github.com/17sho/pass-vault-v2/releases/tag/v1.1.11)
 
 Workers, Static Assets, D1, R2 Standard, DNS, and SSL all have free tiers. The Cloudflare guide now documents D1/R2 allowances, conservative application R2 caps, account-wide shared-usage risk, Billing/Usage checks, and how to prevent Web Analytics auto-injection from conflicting with the vault CSP.
 
