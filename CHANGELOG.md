@@ -4,6 +4,16 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.12] - 2026-07-12
+
+### Fixed / 修复
+- 修复 320px 与 390px 移动端附件工具栏布局：搜索框保持至少 150px 宽，当前“默认”分组完整可见，附件分类筛选器以至少 44px 高度占据完整第二行，且无重叠或横向溢出。
+- Fixed the attachment toolbar at 320px and 390px: search remains at least 150px wide, the current “默认” group stays fully visible, and the attachment category filter occupies a complete second row at least 44px high without overlap or horizontal overflow.
+
+### Tests / 测试
+- 自定义分组 UI 测试改为每个测试使用独立服务器、SQLite 与附件目录，并在测试后等待服务器退出及精确删除临时目录，避免认证夹具与端口状态泄漏。
+- Custom-group UI tests now use an isolated server, SQLite database, and attachment directory per test, then await server exit and remove the exact temporary directory to prevent auth-fixture and port leakage.
+
 ## [1.1.11] - 2026-07-12
 
 ### Added / 新增
