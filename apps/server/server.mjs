@@ -3,6 +3,7 @@ import { readFile, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { join, extname, dirname, resolve } from 'node:path';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { migrateEntriesForSettings } from './migrations.mjs';
 import { validEnvelope, validKdf, validWrappedKey, validateUsername, validAttachmentId, validAttachmentEnvelope, MAX_ATTACHMENT_CIPHERTEXT } from '../../shared/contract.mjs';
 
 const HOST=process.env.HOST||'127.0.0.1',PORT=Number(process.env.PORT||3000);
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS entries(user_id TEXT NOT NULL,id TEXT NOT NULL,type T
 CREATE INDEX IF NOT EXISTS idx_entries_user_type ON entries(user_id,type);
 CREATE TABLE IF NOT EXISTS attachments(user_id TEXT NOT NULL,id TEXT NOT NULL,metadata_iv TEXT NOT NULL,metadata_ciphertext TEXT NOT NULL,object_key TEXT NOT NULL,ciphertext_size INTEGER NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,id),FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_attachments_user_updated ON attachments(user_id,updated_at);`);
+migrateEntriesForSettings(db);
 const attempts=new Map(),cookieName='pv_session',SESSION_MS=8*60*60*1000,MAX_BODY=2_000_000;
 const MAX_BACKUP_ATTACHMENTS=20*1024*1024,MAX_BACKUP_JSON=30*1024*1024;
 const digest=x=>createHash('sha256').update(x).digest('hex');
