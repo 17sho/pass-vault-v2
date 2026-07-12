@@ -4,6 +4,12 @@ All notable changes to this project will be documented here. This file follows [
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-07-12
+
+### Fixed / 修复
+- 修复 iPhone Safari 多账号编辑器图例在窄屏下纵向断字的问题；图例保持横排且不产生横向溢出。保存按钮原本即可通过滚动弹窗到达，因此未改变保存流程。
+- Fixed vertically broken account legends in the narrow iPhone Safari editor; legends stay horizontal without overflow. The save action was already reachable by scrolling the dialog, so the save flow is unchanged.
+
 ## [1.1.9] - 2026-07-11
 
 ### Added / 新增
@@ -93,7 +99,8 @@ All notable changes to this project will be documented here. This file follows [
 - Encrypted backup import/export and password re-wrapping flow.
 - Authentication, session, CSRF, origin, and rate-limit protections.
 
-[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.9...HEAD
+[Unreleased]: https://github.com/17sho/pass-vault-v2/compare/v1.1.10...HEAD
+[1.1.10]: https://github.com/17sho/pass-vault-v2/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/17sho/pass-vault-v2/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/17sho/pass-vault-v2/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/17sho/pass-vault-v2/compare/v1.1.6...v1.1.7
